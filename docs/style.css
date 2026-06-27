@@ -1,15 +1,1 @@
-body{
-    font-family: Arial, sans-serif;
-    background:#121212;
-    color:white;
-    text-align:center;
-    padding:50px;
-}
-
-a{
-    background:#4CAF50;
-    color:white;
-    padding:12px 24px;
-    text-decoration:none;
-    border-radius:10px;
-}
+body{margin:0;font-family:system-ui;background:#0b0b12;color:#fff}nav{padding:20px 40px;background:#1118;backdrop-filter:blur(10px);position:sticky;top:0}.hero{padding:100px 20px;text-align:center;background:radial-gradient(circle,#3b82f633,#0b0b12)}h1{font-size:3rem}.btn{display:inline-block;padding:14px 24px;background:#3b82f6;color:#fff;border-radius:14px;text-decoration:none}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px;padding:20px}.card{background:#ffffff12;padding:24px;border-radius:18px;border:1px solid #ffffff22}
