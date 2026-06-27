@@ -1,1 +1,15 @@
+body{
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:white;
+    text-align:center;
+    padding:50px;
+}
 
+a{
+    background:#4CAF50;
+    color:white;
+    padding:12px 24px;
+    text-decoration:none;
+    border-radius:10px;
+}
