@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- CoverPlay logo triangle — matches BrandTriangle in-app -->
+    <path android:pathData="M34,24 C34,18 40,16 44,20 L88,48 C94,52 94,56 88,60 L44,88 C40,92 34,90 34,84 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="34"
+                android:startY="20"
+                android:endX="92"
+                android:endY="88"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#FFE8F4FF" />
+                <item android:offset="0.45" android:color="#FF7FE3D4" />
+                <item android:offset="1.0" android:color="#FF4A7FB8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M34,52 L62,72 L34,84 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="34"
+                android:startY="52"
+                android:endX="62"
+                android:endY="84"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#CC1E3A5F" />
+                <item android:offset="1.0" android:color="#807FE3D4" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
