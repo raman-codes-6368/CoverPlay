@@ -11,8 +11,8 @@ android {
         applicationId = "com.raman.CoverPlay"
         minSdk = 24
         targetSdk = 37
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -65,5 +65,6 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-video:2.7.0")
     implementation("com.google.zxing:core:3.5.3")
+    implementation("dev.chrisbanes.haze:haze:1.6.0")
 
 }

@@ -1,111 +1,117 @@
 package com.example.myapplication
 
-import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.util.Size
-import android.app.Activity
-import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.graphics.drawable.toDrawable
-import coil.ImageLoader
-import coil.decode.DataSource
-import coil.fetch.DrawableResult
-import coil.fetch.FetchResult
-import coil.fetch.Fetcher
-import coil.request.Options
-import coil.size.pxOrElse
-import coil.memory.MemoryCache
-import coil.disk.DiskCache
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.derivedStateOf
-import android.content.Context
-import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.ui.PlayerView
-import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
-import androidx.compose.material.icons.automirrored.outlined.PlaylistPlay
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.ViewList
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.core.graphics.drawable.toDrawable
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.example.myapplication.ui.theme.*
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
+import coil.ImageLoader
 import coil.compose.AsyncImage
+import coil.decode.DataSource
+import coil.fetch.DrawableResult
+import coil.fetch.FetchResult
+import coil.fetch.Fetcher
 import coil.request.ImageRequest
+import coil.request.Options
 import coil.request.videoFrameMillis
+import coil.size.pxOrElse
+import com.example.myapplication.ui.theme.*
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.util.Calendar
 
 // ── Resolution / quality label ─────────────────────────────────────────────
+fun formatVideoTitleDate(seconds: Long, duration: Long): String {
+    if (seconds == 0L) return if (duration > 0) formatDuration(duration) else "Video"
+    val sdf = java.text.SimpleDateFormat("MMM dd", java.util.Locale.getDefault())
+    val dateStr = sdf.format(java.util.Date(seconds * 1000))
+    return if (duration > 0) "$dateStr · ${formatDuration(duration)}" else dateStr
+}
+
 fun qualityLabel(width: Int, height: Int): String {
     val longerEdge = maxOf(width, height)
     return when {
@@ -118,47 +124,30 @@ fun qualityLabel(width: Int, height: Int): String {
 
 @Composable
 fun QualityBadge(width: Int, height: Int, modifier: Modifier = Modifier) {
-    val label = qualityLabel(width, height)
-    val is4K = label == "4K"
-
-    Surface(
-        color = if (is4K) BrandOrange.copy(alpha = 0.15f) else BrandCyan.copy(alpha = 0.12f),
-        shape = CircleShape,
-        modifier = modifier,
-        border = BorderStroke(1.dp, if (is4K) BrandOrange.copy(alpha = 0.5f) else BrandCyan.copy(alpha = 0.3f))
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp
-            ),
-            color = if (is4K) BrandOrange else BrandCyan,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-        )
-    }
+    val settings = LocalAppUiSettings.current
+    val label = if (width > 0 && height > 0) qualityLabel(width, height) else "FHD"
+    val badgeColor = resolutionColor(label)
+    val badgeFill = if (settings.palette.isDark) Color(0x990A0D1A) else Color(0xEEEDF0FE)
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
+        color = badgeColor,
+        modifier = modifier
+            .glassBadge(badgeFill, badgeColor)
+            .padding(horizontal = 9.dp, vertical = 3.dp)
+    )
 }
 
 @Composable
 fun HierarchyDurationBadge(text: String, modifier: Modifier = Modifier) {
-    Surface(
-        color = BrandAccent.copy(alpha = 0.12f),
-        shape = CircleShape,
-        modifier = modifier,
-        border = BorderStroke(1.dp, BrandAccent.copy(alpha = 0.3f))
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.3.sp
-            ),
-            color = BrandAccent,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-        )
-    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp),
+        color = BrandAccent,
+        modifier = modifier
+            .glassBadge(BrandAccent.copy(alpha = 0.16f), BrandAccent)
+            .padding(horizontal = 9.dp, vertical = 3.dp)
+    )
 }
 
 class VideoThumbnailFetcher(private val uri: Uri, private val options: Options, private val context: Context) : Fetcher {
@@ -188,98 +177,329 @@ class VideoThumbnailFetcher(private val uri: Uri, private val options: Options, 
 }
 
 @Composable
-fun BottomNavigationBar(currentScreen: Screen, onScreenSelected: (Screen) -> Unit) {
-    val items = listOf(
-        NavItem(Screen.HOME,      "Home",      R.drawable.ic_nav_home_filled,      R.drawable.ic_nav_home_unfilled),
-        NavItem(Screen.FOLDERS,   "Folders",   R.drawable.ic_nav_folder_filled,    R.drawable.ic_nav_folder_unfilled),
-        NavItem(Screen.PLAYLISTS, "Playlists", R.drawable.ic_nav_playlist_filled,  R.drawable.ic_nav_playlist_unfilled),
-        NavItem(Screen.SETTINGS,  "Settings",  R.drawable.ic_nav_settings_filled,  R.drawable.ic_nav_settings_unfilled)
-    )
-
+private fun NavGlass(
+    modifier: Modifier,
+    shape: Shape,
+    backdrop: BackdropState?,
+    hazeState: HazeState? = null,
+    accent: Color,
+    content: @Composable BoxScope.() -> Unit
+) {
     val settings = LocalAppUiSettings.current
-    val haptic = LocalHapticFeedback.current
+    val mode = settings.themeMode
+
+    val glassFill = when (mode) {
+        ThemeMode.LIGHT -> Color.White.copy(alpha = 0.68f)
+        ThemeMode.AMOLED -> settings.palette.glassBase.copy(alpha = 0.52f)
+        ThemeMode.DARK -> settings.palette.glassBase.copy(alpha = 0.44f)
+    }
+
+    val rimHi = when (mode) {
+        ThemeMode.LIGHT -> Color.White
+        ThemeMode.AMOLED -> Color.White.copy(alpha = 0.55f)
+        ThemeMode.DARK -> Color.White.copy(alpha = 0.45f)
+    }
 
     Box(
+        modifier = modifier
+            .shadow(
+                elevation = 10.dp,
+                shape = shape,
+                ambientColor = accent.copy(alpha = GlowSpec.AMBIENT * 0.6f),
+                spotColor = accent.copy(alpha = GlowSpec.SPOT * 0.6f)
+            )
+            .clip(shape)
+            .then(
+                if (hazeState != null) {
+                    Modifier.hazeEffect(
+                        state = hazeState,
+                        style = dev.chrisbanes.haze.HazeStyle(
+                            blurRadius = 18.dp,
+                            noiseFactor = 0.015f,
+                            tint = dev.chrisbanes.haze.HazeTint(accent.copy(alpha = 0.04f))
+                        )
+                    )
+                } else if (backdrop != null) {
+                    Modifier.backdropBlur(backdrop)
+                } else {
+                    Modifier
+                }
+            )
+            .background(glassFill)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = if (mode == ThemeMode.LIGHT) 0.65f else 0.18f),
+                        Color.White.copy(alpha = 0.02f)
+                    )
+                )
+            )
+            .border(
+                1.dp,
+                Brush.linearGradient(
+                    listOf(rimHi, accent.copy(alpha = 0.35f), Color.White.copy(alpha = 0.10f))
+                ),
+                shape
+            ),
+        content = content
+    )
+}
+
+@Composable
+fun BottomNavigationBar(
+    currentScreen: Screen,
+    onScreenSelected: (Screen) -> Unit,
+    collapsed: Boolean = false,
+    backdrop: BackdropState? = null,
+    hazeState: HazeState? = null
+) {
+    val tabs = listOf(
+        NavItem(Screen.HOME,      "Home",      R.drawable.ic_nav_home_filled,     R.drawable.ic_nav_home_unfilled),
+        NavItem(Screen.FOLDERS,   "Folders",   R.drawable.ic_nav_folder_filled,   R.drawable.ic_nav_folder_unfilled),
+        NavItem(Screen.PLAYLISTS, "Playlists", R.drawable.ic_nav_playlist_filled, R.drawable.ic_nav_playlist_unfilled)
+    )
+    val settingsItem = NavItem(Screen.SETTINGS, "Settings", R.drawable.ic_nav_settings_filled, R.drawable.ic_nav_settings_unfilled)
+    val settings = LocalAppUiSettings.current
+    val haptic = LocalHapticFeedback.current
+    val accent = settings.accent
+
+    val scale by animateFloatAsState(if (collapsed) 0.84f else 1f, spring(0.75f, 350f), label = "navScale")
+    val settingsSelected = currentScreen == Screen.SETTINGS
+    val settingsSel by animateFloatAsState(if (settingsSelected) 1f else 0f, tween(350, easing = FastOutSlowInEasing), label = "setSel")
+
+    Row(
         modifier = Modifier
             .navigationBarsPadding()
-            .padding(horizontal = 24.dp, vertical = 24.dp)
+            .padding(horizontal = 18.dp, vertical = 14.dp)
             .fillMaxWidth()
-            .height(64.dp),
-        contentAlignment = Alignment.Center
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(0.5f, 1f)
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 1. Shadow & Blur Layer (Halo effect around the bar)
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .shadow(
-                    elevation = 28.dp,
-                    shape = CircleShape,
-                    spotColor = Color.Black.copy(alpha = 0.4f),
-                    ambientColor = Color.Black.copy(alpha = 0.2f)
-                )
-                .blur(radius = 16.dp)
-                .background(settings.palette.surfaceRaisedAlt.copy(alpha = 0.6f), CircleShape)
-        )
-
-        // 2. Main Navigation Bar Layer
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(settings.palette.surfaceRaisedAlt.copy(alpha = 0.94f), CircleShape)
-                .border(1.dp, settings.palette.outlineMedium.copy(alpha = 0.4f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier
-                    .padding(4.dp)
-                    .fillMaxSize(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items.forEach { item ->
+        // ── Main glass pill (3 tabs) ──
+        NavGlass(Modifier.weight(1f).height(66.dp), CircleShape, backdrop, hazeState, accent) {
+            Row(Modifier.padding(5.dp).fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                tabs.forEach { item ->
                     val isSelected = when (item.screen) {
                         Screen.FOLDERS -> currentScreen == Screen.FOLDERS || currentScreen == Screen.FOLDER_VIDEOS
                         else -> currentScreen == item.screen
                     }
-
-                    val bg by animateColorAsState(
-                        targetValue = if (isSelected) settings.accent else Color.Transparent,
-                        animationSpec = tween(400, easing = FastOutSlowInEasing),
-                        label = "navBg"
-                    )
-                    val contentColor by animateColorAsState(
-                        targetValue = if (isSelected) Color.White else settings.palette.textSecondary,
-                        animationSpec = tween(400),
-                        label = "navContent"
-                    )
-
+                    val weight by animateFloatAsState(if (isSelected) 1.5f else 0.8f, spring(0.85f, 380f), label = "navW")
+                    val selection by animateFloatAsState(if (isSelected) 1f else 0f, tween(350, easing = FastOutSlowInEasing), label = "navSel")
+                    val contentColor by animateColorAsState(if (isSelected) Color.White else settings.palette.textSecondary, tween(350), label = "navC")
+                    val interaction = remember { MutableInteractionSource() }
+                    val pressed by interaction.collectIsPressedAsState()
+                    val pressScale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(0.55f, 520f), label = "navP")
                     Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(weight.coerceAtLeast(0.1f))
                             .fillMaxHeight()
+                            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
                             .clip(CircleShape)
-                            .background(bg)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            .clickable(interactionSource = interaction, indication = null) {
+                                if (!isSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onScreenSelected(item.screen)
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        val iconScale by animateFloatAsState(
-                            targetValue = if (isSelected) 1.15f else 1.0f,
-                            animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
-                            label = "iconScale"
+                        Box(
+                            Modifier.matchParentSize().graphicsLayer { alpha = selection }
+                                .liquidLens(accent)
                         )
-                        Icon(
-                            painter = painterResource(if (isSelected) item.filledIcon else item.outlineIcon),
-                            contentDescription = item.label,
-                            tint = contentColor,
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
+                            Icon(
+                                painter = painterResource(if (isSelected) item.filledIcon else item.outlineIcon),
+                                contentDescription = item.label, tint = contentColor,
+                                modifier = Modifier.size(22.dp).graphicsLayer { val sc = 1f + 0.1f * selection; scaleX = sc; scaleY = sc }
+                            )
+                            AnimatedVisibility(
+                                visible = isSelected && !collapsed,
+                                enter = fadeIn(tween(250, delayMillis = 80)) + expandHorizontally(spring(0.85f, 400f)),
+                                exit = fadeOut(tween(120)) + shrinkHorizontally(spring(0.9f, 500f))
+                            ) {
+                                Row {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(item.label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                        color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Detached Settings button (Apple-style) ──
+        val sInteraction = remember { MutableInteractionSource() }
+        val sPressed by sInteraction.collectIsPressedAsState()
+        val sPress by animateFloatAsState(if (sPressed) 0.9f else 1f, spring(0.55f, 520f), label = "setP")
+        NavGlass(
+            Modifier.size(66.dp).graphicsLayer { scaleX = sPress; scaleY = sPress }
+                .clickable(interactionSource = sInteraction, indication = null) {
+                    if (!settingsSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onScreenSelected(Screen.SETTINGS)
+                },
+            CircleShape, backdrop, hazeState, accent
+        ) {
+            Box(
+                Modifier.matchParentSize().graphicsLayer { alpha = settingsSel }.liquidLens(accent)
+            )
+            Icon(
+                painter = painterResource(if (settingsSelected) settingsItem.filledIcon else settingsItem.outlineIcon),
+                contentDescription = "Settings",
+                tint = if (settingsSelected) Color.White else settings.palette.textSecondary,
+                modifier = Modifier.size(24.dp).align(Alignment.Center)
+            )
+        }
+    }
+}
+
+private data class NavItem(val screen: Screen, val label: String, val filledIcon: Int, val outlineIcon: Int)
+
+private data class ModeOption(val mode: ThemeMode, val label: String, val icon: ImageVector)
+
+/**
+ * Compact liquid-glass appearance panel: one segmented mode selector + one swatch row.
+ * Drawn in the SAME window as the screen (not a Popup) so the live Haze blur works.
+ */
+@Composable
+fun AppearanceGlassPanel(
+    currentMode: ThemeMode,
+    accent: Color,
+    accentOptions: List<Color>,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onAccentChange: (Color) -> Unit,
+    modifier: Modifier = Modifier,
+    accentName: String? = null
+) {
+    val settings = LocalAppUiSettings.current
+    val context = LocalContext.current
+    val options = remember {
+        listOf(
+            ModeOption(ThemeMode.DARK, "Dark", Icons.Rounded.DarkMode),
+            ModeOption(ThemeMode.LIGHT, "Light", Icons.Rounded.LightMode),
+            ModeOption(ThemeMode.AMOLED, "AMOLED", Icons.Rounded.Contrast)
+        )
+    }
+
+    GlassSurface(
+        modifier = modifier.width(280.dp),
+        shape = RoundedCornerShape(26.dp),
+        blur = true,
+        elevation = 20.dp,
+        glow = accent
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "APPEARANCE",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp
+                    ),
+                    color = accent
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Text(
+                    accentName ?: settings.appTheme.label,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                    color = settings.palette.textTertiary
+                )
+            }
+
+            // ── Segmented mode selector with a sliding accent glass lens ──
+            val index = options.indexOfFirst { it.mode == currentMode }.coerceAtLeast(0)
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = if (settings.palette.isDark) 0.06f else 0.35f))
+                    .border(1.dp, Color.White.copy(alpha = if (settings.palette.isDark) 0.10f else 0.5f), CircleShape)
+                    .padding(3.dp)
+            ) {
+                val segW = maxWidth / options.size
+                val lensX by animateDpAsState(segW * index, spring(0.75f, 380f), label = "modeLens")
+                Box(
+                    Modifier
+                        .offset(x = lensX)
+                        .width(segW)
+                        .fillMaxHeight()
+                        .liquidLens(accent)
+                )
+                Row(Modifier.fillMaxSize()) {
+                    options.forEach { o ->
+                        val selected = o.mode == currentMode
+                        val tint by animateColorAsState(
+                            if (selected) Color.White else settings.palette.textSecondary,
+                            tween(200), label = "modeTint"
+                        )
+                        Row(
                             modifier = Modifier
-                                .size(24.dp)
-                                .graphicsLayer(scaleX = iconScale, scaleY = iconScale)
-                        )
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onThemeModeChange(o.mode) },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(o.icon, null, tint = tint, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                o.label,
+                                style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                                color = tint,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── 5 Full Expressive Themes swatches ──
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AppTheme.entries.forEach { appTheme ->
+                    val selected = settings.appTheme == appTheme
+                    val sc by animateFloatAsState(if (selected) 1.15f else 0.88f, spring(0.6f, 450f), label = "swatch")
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer { scaleX = sc; scaleY = sc }
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(appTheme.highlight, appTheme.primaryAccent, appTheme.secondaryAccent)))
+                            .border(
+                                if (selected) 2.dp else 1.dp,
+                                if (selected) Color.White else Color.White.copy(alpha = 0.22f),
+                                CircleShape
+                            )
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                setAppTheme(context, appTheme)
+                                onAccentChange(appTheme.primaryAccent)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -287,7 +507,291 @@ fun BottomNavigationBar(currentScreen: Screen, onScreenSelected: (Screen) -> Uni
     }
 }
 
-private data class NavItem(val screen: Screen, val label: String, val filledIcon: Int, val outlineIcon: Int)
+/** Accent colors offered in the Appearance popup (pulled from the brand palette). */
+val DefaultAccentOptions: List<Color> = AppTheme.entries.map { it.primaryAccent }
+
+private enum class DayPeriod(val greeting: String, val line: String) {
+    MORNING("Good morning", "Start your day with something good"),
+    AFTERNOON("Good afternoon", "Take a break and press play"),
+    EVENING("Good evening", "Unwind with something you love"),
+    NIGHT("Good night", "Settle in for a late-night watch")
+}
+
+private fun periodFor(hour: Int): DayPeriod = when (hour) {
+    in 5..11 -> DayPeriod.MORNING
+    in 12..16 -> DayPeriod.AFTERNOON
+    in 17..20 -> DayPeriod.EVENING
+    else -> DayPeriod.NIGHT
+}
+
+@Composable
+fun GreetingHeader(
+    modifier: Modifier = Modifier,
+    userName: String? = null,
+    hasRecent: Boolean = false,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
+    accentOptions: List<Color> = DefaultAccentOptions,
+    onAccentChange: (Color) -> Unit = {}
+) {
+    val settings = LocalAppUiSettings.current
+    val accent = settings.accent
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+
+    // Re-check the time every minute so the greeting flips on its own.
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            now = System.currentTimeMillis()
+        }
+    }
+    val cal = remember(now) { Calendar.getInstance().apply { timeInMillis = now } }
+    val period = periodFor(cal.get(Calendar.HOUR_OF_DAY))
+
+    // Rotating witty copy: auto-advances every 14 s, or instantly on a double tap (which also restarts the timer).
+    var tick by remember { mutableStateOf(0) }
+    var manualNonce by remember { mutableStateOf(0) }
+    LaunchedEffect(manualNonce) {
+        while (true) {
+            delay(14_000L)
+            tick++
+        }
+    }
+    val line = remember(period, tick, hasRecent, settings.appTheme) {
+        Humor.greeting(period.ordinal, tick, hasRecent, settings.appTheme)
+    }
+    val dateText = remember(now) {
+        java.text.SimpleDateFormat("EEEE, MMM d", java.util.Locale.getDefault())
+            .format(java.util.Date(now)).uppercase()
+    }
+
+    // Staggered entrance
+    var show by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { show = true }
+    val emph = remember { CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f) }
+    val a1 by animateFloatAsState(if (show) 1f else 0f, tween(650, easing = emph), label = "g1")
+    val a2 by animateFloatAsState(if (show) 1f else 0f, tween(650, delayMillis = 110, easing = emph), label = "g2")
+    val a3 by animateFloatAsState(if (show) 1f else 0f, tween(650, delayMillis = 220, easing = emph), label = "g3")
+
+    // Double-tap feedback: a soft press-and-release pulse + a one-shot accent shimmer under the text.
+    val pulse = remember { Animatable(1f) }
+    val shimmer = remember { Animatable(0f) }
+
+    // Hidden easter egg: 7 quick taps (a double tap counts as two).
+    var eggCount by remember { mutableIntStateOf(0) }
+    var eggLast by remember { mutableLongStateOf(0L) }
+    fun eggHit(n: Int) {
+        val t = System.currentTimeMillis()
+        eggCount = if (t - eggLast > 1500L) n else eggCount + n
+        eggLast = t
+        if (eggCount >= 7) { eggCount = 0; showSecret(context) }
+    }
+
+    val gradient = Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.55f), Color.White))
+
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            Modifier
+                .weight(1f)
+                .graphicsLayer {
+                    scaleX = pulse.value
+                    scaleY = pulse.value
+                    transformOrigin = TransformOrigin(0f, 0.5f)
+                }
+                .drawBehind {
+                    val p = shimmer.value
+                    if (p > 0.001f) {
+                        val w = size.width
+                        drawRect(
+                            Brush.horizontalGradient(
+                                0f to Color.Transparent,
+                                0.5f to accent.copy(alpha = 0.16f * kotlin.math.sin(p * Math.PI.toFloat())),
+                                1f to Color.Transparent,
+                                startX = -w * 0.4f + w * 1.8f * p, endX = w * 0.4f + w * 1.8f * p
+                            )
+                        )
+                    }
+                }
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onTap = { eggHit(1) },
+                        onDoubleTap = {
+                            eggHit(2)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            tick++
+                            manualNonce++
+                            scope.launch {
+                                launch {
+                                    pulse.animateTo(0.965f, tween(90, easing = FastOutSlowInEasing))
+                                    pulse.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 380f))
+                                }
+                                shimmer.snapTo(0f)
+                                shimmer.animateTo(1f, tween(750, easing = FastOutSlowInEasing))
+                                shimmer.snapTo(0f)
+                            }
+                        }
+                    )
+                }
+        ) {
+            Text(
+                text = dateText,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.6.sp
+                ),
+                color = settings.palette.textTertiary,
+                modifier = Modifier.graphicsLayer {
+                    alpha = a1
+                    translationY = (1f - a1) * 10.dp.toPx()
+                }
+            )
+            Spacer(Modifier.height(4.dp))
+            AnimatedContent(
+                targetState = line.first,
+                transitionSpec = {
+                    ((fadeIn(tween(520, 110, easing = emph)) + slideInVertically(tween(520, 110, easing = emph)) { it / 3 }) togetherWith
+                            (fadeOut(tween(220)) + slideOutVertically(tween(260, easing = emph)) { -it / 4 }))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "greetHead"
+            ) { headline ->
+                Text(
+                    text = buildAnnotatedString {
+                        append(headline)
+                        if (!userName.isNullOrBlank()) {
+                            append(",\n")
+                            withStyle(SpanStyle(brush = gradient)) { append(userName) }
+                        }
+                    },
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontSize = 24.sp,
+                        lineHeight = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.4).sp
+                    ),
+                    color = settings.palette.textPrimary,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = a2
+                        translationY = (1f - a2) * 14.dp.toPx()
+                    }
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            AnimatedContent(
+                targetState = line.second,
+                transitionSpec = {
+                    ((fadeIn(tween(520, 200, easing = emph)) + slideInVertically(tween(520, 200, easing = emph)) { it / 2 }) togetherWith
+                            (fadeOut(tween(200)) + slideOutVertically(tween(240, easing = emph)) { -it / 3 }))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "greetSub"
+            ) { sub ->
+                Text(
+                    text = sub,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.Normal),
+                    color = settings.palette.textTertiary,
+                    modifier = Modifier.graphicsLayer {
+                        alpha = a3
+                        translationY = (1f - a3) * 14.dp.toPx()
+                    }
+                )
+            }
+        }
+    }
+}
+
+private val DiceOvershoot = Easing { t ->
+    val s = 1.35f
+    val x = t - 1f
+    x * x * ((s + 1f) * x + s) + 1f
+}
+
+/**
+ * Premium dice: lifts off, tumbles on all three axes with a springy overshoot, lands with a
+ * ripple ring — the new theme is applied mid-tumble so the change feels like the dice caused it.
+ */
+@Composable
+fun DiceRollButton(size: androidx.compose.ui.unit.Dp = 38.dp, onRoll: () -> Unit) {
+    val settings = LocalAppUiSettings.current
+    val accent = settings.accent
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val roll = remember { Animatable(0f) }
+    var rolling by remember { mutableStateOf(false) }
+    var dir by remember { mutableStateOf(1f) }
+    val painter = painterResource(R.drawable.ic_random_dice)
+    val idleTint = settings.palette.textPrimary
+
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        // landing ripple
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    val p = roll.value
+                    val k = ((p - 0.55f) / 0.45f).coerceIn(0f, 1f)
+                    alpha = if (k > 0f) (1f - k) * 0.75f else 0f
+                    val sc = 1f + 0.85f * k
+                    scaleX = sc; scaleY = sc
+                }
+                .border(1.5.dp, accent, CircleShape)
+        )
+        GlassSurface(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    val p = roll.value
+                    val arc = kotlin.math.sin(Math.PI.toFloat() * p)
+                    val sc = 1f + 0.30f * arc
+                    scaleX = sc; scaleY = sc
+                    translationY = -12.dp.toPx() * arc
+                },
+            shape = CircleShape,
+            elevation = 3.dp,
+            blur = true,
+            pressedScale = 0.92f,
+            onClick = {
+                if (!rolling) {
+                    rolling = true
+                    dir = -dir
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    scope.launch {
+                        launch {
+                            delay(520L)
+                            onRoll()
+                        }
+                        roll.snapTo(0f)
+                        roll.animateTo(1f, tween(1150, easing = LinearEasing))
+                        roll.snapTo(0f)
+                        rolling = false
+                    }
+                }
+            }
+        ) {
+            Icon(
+                painter = painter,
+                contentDescription = "Randomize appearance",
+                tint = androidx.compose.ui.graphics.lerp(idleTint, accent, kotlin.math.sin(Math.PI.toFloat() * roll.value)),
+                modifier = Modifier
+                    .size(size * 0.5f)
+                    .align(Alignment.Center)
+                    .graphicsLayer {
+                        val e = DiceOvershoot.transform(roll.value)
+                        cameraDistance = 14f * density
+                        rotationX = 540f * e * dir
+                        rotationY = 720f * e * dir
+                        rotationZ = 180f * e
+                    }
+            )
+        }
+    }
+}
 
 @Composable
 fun SignatureTitle(title: String) {
@@ -320,8 +824,7 @@ fun SignatureTitle(title: String) {
         ) {
             Text(
                 text = "Cover",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
+                style = TopBarTitleStyle,
                 color = settings.palette.textPrimary
             )
 
@@ -337,8 +840,7 @@ fun SignatureTitle(title: String) {
 
             Text(
                 text = "Play",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
+                style = TopBarTitleStyle,
                 color = settings.accent,
                 modifier = Modifier.graphicsLayer {
                     this.alpha = playAlpha
@@ -347,9 +849,24 @@ fun SignatureTitle(title: String) {
             )
         }
     } else {
-        Text(title, fontWeight = FontWeight.Bold, color = settings.palette.textPrimary)
+        Text(
+            text = title,
+            style = TopBarTitleStyle,
+            color = settings.palette.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
+
+/** Compact, confident title — present but never louder than the content below it. */
+private val TopBarTitleStyle: androidx.compose.ui.text.TextStyle
+    @Composable get() = MaterialTheme.typography.headlineMedium.copy(
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.3).sp
+    )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -365,42 +882,82 @@ fun MainTopAppBar(
     onToggleLayout: () -> Unit = {},
     onShowFilter: () -> Unit = {},
     showExtraActions: Boolean = true,
-    isScrolled: Boolean = false
+    isScrolled: Boolean = false,
+    showDice: Boolean = false,
+    hazeState: HazeState? = LocalGlassHaze.current
 ) {
     val focusRequester = remember { FocusRequester() }
     val settings = LocalAppUiSettings.current
     val haptic = LocalHapticFeedback.current
+    val fadeZone = 24.dp
+    val backdropAlpha by animateFloatAsState(
+        targetValue = if (isScrolled) 1f else 0f,
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
+        label = "barBackdrop"
+    )
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        // 1. Premium Glassmorphic Layer
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(
-                    if (isSearchActive) settings.palette.bg 
-                    else settings.palette.bg.copy(alpha = 0.88f)
+                .layout { measurable, constraints ->
+                    val extra = fadeZone.roundToPx()
+                    val placeable = measurable.measure(
+                        Constraints.fixed(constraints.maxWidth, constraints.maxHeight + extra)
+                    )
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        placeable.place(0, 0)
+                    }
+                }
+                .graphicsLayer { alpha = backdropAlpha }
+        ) {
+            if (hazeState != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .hazeEffect(state = hazeState) {
+                            style = HazeStyle(
+                                blurRadius = 16.dp,
+                                noiseFactor = 0.01f,
+                                tint = HazeTint(settings.palette.bg.copy(alpha = 0.60f))
+                            )
+                            progressive = HazeProgressive.verticalGradient(
+                                startIntensity = 1f,
+                                endIntensity = 0f,
+                                easing = EaseInOut
+                            )
+                        }
                 )
-                .then(
-                    if (isScrolled && !isSearchActive) {
-                        Modifier.shadow(
-                            elevation = 8.dp,
-                            spotColor = Color(0xFF000014).copy(alpha = 0.1f),
-                            ambientColor = Color.Transparent
-                        )
-                    } else Modifier
-                )
-        )
+            }
 
-        // 2. Refined Hairline Border (Visible on scroll)
-        if (isScrolled && !isSearchActive) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.8.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(settings.palette.outlineMedium.copy(alpha = 0.15f))
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.00f to settings.palette.bg.copy(alpha = 0.90f),
+                                0.50f to settings.palette.bg.copy(alpha = 0.60f),
+                                0.82f to settings.palette.bg.copy(alpha = 0.20f),
+                                1.00f to Color.Transparent
+                            )
+                        )
+                    )
             )
         }
+
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(1.dp)
+                .graphicsLayer { alpha = backdropAlpha }
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, settings.accent.copy(alpha = 0.10f), settings.palette.textTertiary.copy(alpha = 0.08f), Color.Transparent)
+                    )
+                )
+        )
 
         TopAppBar(
             title = {
@@ -408,40 +965,85 @@ fun MainTopAppBar(
                     targetState = isSearchActive,
                     transitionSpec = {
                         if (targetState) {
-                            (fadeIn(tween(400)) + slideInHorizontally { it / 3 } + expandHorizontally(expandFrom = Alignment.End, animationSpec = spring(0.75f, 400f))) togetherWith
+                            (fadeIn(tween(400)) + slideInHorizontally { it / 3 } + expandHorizontally(
+                                expandFrom = Alignment.End,
+                                animationSpec = spring(0.75f, 400f)
+                            )) togetherWith
                                     (fadeOut(tween(300)) + slideOutHorizontally { -it / 2 })
                         } else {
                             (fadeIn(tween(400)) + slideInHorizontally { -it / 3 }) togetherWith
-                                    (fadeOut(tween(300)) + slideOutHorizontally { it / 2 } + shrinkHorizontally(shrinkTowards = Alignment.End))
+                                    (fadeOut(tween(300)) + slideOutHorizontally { it / 2 } + shrinkHorizontally(
+                                        shrinkTowards = Alignment.End
+                                    ))
                         }
                     },
                     label = "searchExpansion"
                 ) { active ->
                     if (active) {
                         LaunchedEffect(Unit) { focusRequester.requestFocus() }
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchQueryChange,
+                        GlassSurface(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp)
-                                .focusRequester(focusRequester)
-                                .background(settings.palette.surfaceRaisedAlt.copy(alpha = 0.6f), CircleShape)
-                                .padding(horizontal = 20.dp),
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = settings.palette.textPrimary),
-                            cursorBrush = SolidColor(settings.accent),
-                            singleLine = true,
-                            decorationBox = { innerTextField ->
-                                Box(contentAlignment = Alignment.CenterStart) {
-                                    if (searchQuery.isEmpty()) {
-                                        Text("Search videos...", color = settings.palette.textTertiary, style = MaterialTheme.typography.bodyMedium)
+                                .height(40.dp)
+                                .padding(end = 12.dp),
+                            shape = CircleShape,
+                            blur = false,
+                            elevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_search_custom),
+                                    contentDescription = null,
+                                    tint = settings.palette.textSecondary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                BasicTextField(
+                                    value = searchQuery,
+                                    onValueChange = onSearchQueryChange,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .focusRequester(focusRequester),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = settings.palette.textPrimary,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    cursorBrush = SolidColor(settings.accent),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        Box(contentAlignment = Alignment.CenterStart) {
+                                            if (searchQuery.isEmpty()) {
+                                                Text(
+                                                    "Search videos...",
+                                                    color = settings.palette.textTertiary,
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
                                     }
-                                    innerTextField()
+                                )
+                                if (searchQuery.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_close_custom),
+                                        contentDescription = "Clear",
+                                        tint = settings.palette.textSecondary,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .aliveClickable { onSearchQueryChange("") }
+                                    )
                                 }
                             }
-                        )
+                        }
                     } else {
-                        SignatureTitle(title)
+                        val titleCtx = LocalContext.current
+                        Box(Modifier.easterEggTaps(7) { showSecret(titleCtx, Quips.tabSecret(title)) }) { SignatureTitle(title) }
                     }
                 }
             },
@@ -451,58 +1053,56 @@ fun MainTopAppBar(
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         onBack()
                     }) {
-                        Icon(painterResource(R.drawable.ic_back_custom), null, tint = settings.palette.textPrimary)
+                        Icon(
+                            painterResource(R.drawable.ic_back_custom),
+                            null,
+                            tint = settings.palette.textPrimary
+                        )
                     }
                 }
             },
             actions = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Morphing Search icon
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(end = 10.dp)
+                ) {
                     val rotation by animateFloatAsState(
                         targetValue = if (isSearchActive) 90f else 0f,
-                        animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f)
+                        animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
+                        label = "searchRot"
                     )
-
-                    val interactionSource = remember { MutableInteractionSource() }
-                    val isPressed by interactionSource.collectIsPressedAsState()
-                    val pressRotation by animateFloatAsState(
-                        targetValue = if (isPressed) 45f else 0f,
-                        animationSpec = spring(dampingRatio = 0.4f, stiffness = Spring.StiffnessLow),
-                        label = "searchPressRotation"
+                    GlassCircleButton(
+                        painter = painterResource(if (isSearchActive) R.drawable.ic_close_custom else R.drawable.ic_search_custom),
+                        description = "Search",
+                        rotation = rotation,
+                        size = 38.dp,
+                        onClick = onToggleSearch
                     )
-
-                    IconButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            onToggleSearch()
-                        },
-                        interactionSource = interactionSource
-                    ) {
-                        Icon(
-                            painter = painterResource(if (isSearchActive) R.drawable.ic_close_custom else R.drawable.ic_search_custom),
-                            contentDescription = "Search",
-                            modifier = Modifier.graphicsLayer { rotationZ = rotation + pressRotation },
-                            tint = if (isSearchActive) settings.palette.textSecondary else settings.palette.textPrimary
-                        )
+                    if (!isSearchActive && showDice) {
+                        val context = LocalContext.current
+                        DiceRollButton(size = 38.dp) {
+                            val nextTheme = AppTheme.entries.filter { it != settings.appTheme }.random()
+                            setThemeMode(context, ThemeMode.entries.random())
+                            setAppTheme(context, nextTheme)
+                        }
                     }
-
                     if (!isSearchActive && showExtraActions) {
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onToggleLayout()
-                        }) {
-                            Icon(painterResource(if (currentLayout == LayoutMode.LIST) R.drawable.ic_grid_custom else R.drawable.ic_list_custom), null, tint = settings.palette.textPrimary)
-                        }
-                        IconButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onShowFilter()
-                        }) {
-                            Icon(painterResource(R.drawable.ic_filter_custom), null, tint = settings.palette.textPrimary)
-                        }
+                        GlassCircleButton(
+                            painter = painterResource(if (currentLayout == LayoutMode.LIST) R.drawable.ic_grid_custom else R.drawable.ic_list_custom),
+                            description = "Layout", size = 38.dp, onClick = onToggleLayout
+                        )
+                        GlassCircleButton(
+                            painter = painterResource(R.drawable.ic_filter_custom),
+                            description = "Filter", size = 38.dp, onClick = onShowFilter
+                        )
                     }
                 }
             },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent
+            )
         )
     }
 }
@@ -519,7 +1119,11 @@ fun DashboardScreen(
     onToggleSearch: () -> Unit,
     onVideoClick: (VideoFile) -> Unit,
     onVideoChanged: () -> Unit = {},
-    onPlayUrl: (String) -> Unit = {}
+    onPlayUrl: (String) -> Unit = {},
+    userName: String? = null,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
+    accentOptions: List<Color> = DefaultAccentOptions,
+    onAccentChange: (Color) -> Unit = {}
 ) {
     var actionVideo by remember { mutableStateOf<VideoFile?>(null) }
     var activeDialog by remember { mutableStateOf<VideoActionDialog?>(null) }
@@ -529,16 +1133,29 @@ fun DashboardScreen(
     var layoutMode     by remember { mutableStateOf(LayoutMode.LIST) }
     var showUrlDialog  by remember { mutableStateOf(false) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    
+    var selectedQuickFilter by remember { mutableStateOf("For you") }
+
+    val context = LocalContext.current
     val scrollState = androidx.compose.foundation.lazy.rememberLazyListState()
     val isScrolled by remember {
         derivedStateOf { scrollState.firstVisibleItemIndex > 0 || scrollState.firstVisibleItemScrollOffset > 0 }
     }
 
-    val filteredVideos by remember(allVideos, searchQuery, sortOrder) {
+    val filteredVideos by remember(allVideos, searchQuery, sortOrder, selectedQuickFilter) {
         derivedStateOf {
-            val base = if (searchQuery.isEmpty()) allVideos
+            val prefs = context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE)
+            val baseSearch = if (searchQuery.isEmpty()) allVideos
             else allVideos.filter { it.name.contains(searchQuery, ignoreCase = true) }
+
+            val base = when (selectedQuickFilter) {
+                "New" -> baseSearch.filter { prefs.getLong(it.path, 0L) == 0L }
+                "Quick" -> baseSearch.filter { it.duration in 1L..120_000L }
+                "4K" -> baseSearch.filter { it.width >= 3840 || it.height >= 2160 }
+                "Long" -> baseSearch.filter { it.duration >= 600_000L }
+                else -> rankSuggested(baseSearch, prefs)
+            }
+
+            if (selectedQuickFilter == "For you") return@derivedStateOf base
 
             when (sortOrder) {
                 VideoSortOrder.NAME_ASC -> base.sortedBy { it.name.lowercase() }
@@ -572,16 +1189,11 @@ fun DashboardScreen(
 
     val settings = LocalAppUiSettings.current
 
-    var showContent by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
-    }
-
     Scaffold(
         topBar = {
             MainTopAppBar(
                 title = "CoverPlay",
+                showDice = true,
                 isSearchActive = isSearchActive,
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange,
@@ -598,41 +1210,45 @@ fun DashboardScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 state = scrollState,
-                modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
+                modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 140.dp)
             ) {
                 if (!isSearchActive || searchQuery.isEmpty()) {
                     item {
-                        AnimatedVisibility(
-                            visible = showContent,
-                            enter = slideInVertically { 40 } + fadeIn(),
-                            label = "urlEntrance"
-                        ) {
+                        GreetingHeader(
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 2.dp),
+                            userName = userName,
+                            hasRecent = recentEntries.isNotEmpty(),
+                            onThemeModeChange = onThemeModeChange,
+                            accentOptions = accentOptions,
+                            onAccentChange = onAccentChange
+                        )
+                    }
+                    item {
+                        Column {
+                            SectionLabel("Stream URL")
                             val haptic = LocalHapticFeedback.current
-                            Surface(
+                            PremiumCardSurface(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth()
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        showUrlDialog = true
-                                    },
-                                color = settings.palette.surfaceRaisedAlt,
-                                border = BorderStroke(1.dp, settings.palette.outlineMedium),
-                                shape = CircleShape
+                                    .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
+                                    .fillMaxWidth(),
+                                cornerRadius = 22.dp,
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showUrlDialog = true
+                                }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    BrandIconContainer(active = true, size = 44.dp, cornerRadius = 14.dp) {
-                                        Icon(Icons.Rounded.Link, null, tint = Color.White)
+                                    BrandIconContainer(active = true, size = 38.dp, cornerRadius = 12.dp) {
+                                        Icon(painterResource(R.drawable.ic_url_custom), null, tint = Color.White, modifier = Modifier.size(20.dp))
                                     }
-                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Spacer(modifier = Modifier.width(14.dp))
                                     Column {
-                                        Text("Stream URL", style = MaterialTheme.typography.titleMedium, color = settings.palette.textPrimary, fontWeight = FontWeight.Black)
-                                        Text("Play remote links", style = MaterialTheme.typography.bodySmall, color = settings.palette.textSecondary)
+                                        Text("Stream URL", style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold), color = settings.palette.textPrimary)
+                                        Text("Play remote network links", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp), color = settings.palette.textTertiary)
                                     }
                                 }
                             }
@@ -641,31 +1257,49 @@ fun DashboardScreen(
 
                     if (recentEntries.isNotEmpty()) {
                         item {
-                            AnimatedVisibility(
-                                visible = showContent,
-                                enter = slideInVertically { 60 } + fadeIn(tween(600, delayMillis = 100)),
-                                label = "recentsEntrance"
-                            ) {
-                                Column {
-                                    SectionLabel("Continue Watching")
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                    ) {
-                                        itemsIndexed(recentEntries, key = { _, it -> it.video.id }) { index, entry ->
-                                            val entryAnimation = remember { Animatable(0f) }
-                                            LaunchedEffect(Unit) {
-                                                delay(index * 100L)
-                                                entryAnimation.animateTo(1f, animationSpec = MotionSpec.EmphasizedSpring)
+                            Column {
+                                SectionLabel("Continue Watching", recentEntries.size)
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    items(recentEntries, key = { it.video.id }) { entry ->
+                                        RecentVideoCard(
+                                            video = entry.video,
+                                            onClick = { onVideoClick(entry.video) },
+                                            onRemove = {
+                                                removeFromRecents(context, entry.video.id, recentEntries as MutableList<RecentEntry>)
                                             }
-                                            RecentVideoCard(
-                                                video = entry.video,
-                                                onClick = { onVideoClick(entry.video) },
-                                                modifier = Modifier.graphicsLayer {
-                                                    scaleX = 0.8f + (entryAnimation.value * 0.2f)
-                                                    scaleY = 0.8f + (entryAnimation.value * 0.2f)
-                                                    alpha = entryAnimation.value
-                                                }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        Column {
+                            SectionLabel("Stats")
+                            UsageStatsSection()
+                        }
+                    }
+                    item {
+                        Column {
+                            SectionHeader(title = "Suggested", count = filteredVideos.size, subtitle = "Smart picks from your library")
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("For you", "New", "Quick", "4K", "Long").forEach { chip ->
+                                    item {
+                                        GlassChip(
+                                            onClick = { selectedQuickFilter = chip },
+                                            selected = selectedQuickFilter == chip
+                                        ) {
+                                            Text(
+                                                text = chip,
+                                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                                color = if (selectedQuickFilter == chip) Color.White else settings.palette.textSecondary,
+                                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                                             )
                                         }
                                     }
@@ -673,58 +1307,44 @@ fun DashboardScreen(
                             }
                         }
                     }
-                    item {
-                        AnimatedVisibility(
-                            visible = showContent,
-                            enter = slideInVertically { 80 } + fadeIn(tween(600, delayMillis = 200)),
-                            label = "libraryEntrance"
-                        ) {
-                            SectionLabel("Library")
-                        }
-                    }
                 }
 
+                val heroVideo = if (selectedQuickFilter == "For you" && searchQuery.isEmpty()) filteredVideos.firstOrNull() else null
+                val listVideos = if (heroVideo != null) filteredVideos.drop(1) else filteredVideos
+                if (heroVideo != null) {
+                    item(key = "suggested_hero_${heroVideo.id}") {
+                        SuggestedHero(video = heroVideo, onClick = { onVideoClick(heroVideo) }, onLongClick = { actionVideo = heroVideo })
+                    }
+                }
                 if (filteredVideos.isEmpty()) {
                     item {
-                        EmptyState(
-                            title = "No Videos Found",
-                            subtitle = "Try a different search or check your folders"
-                        ) {
-                            Icon(painterResource(R.drawable.ic_search_custom), null, modifier = Modifier.size(56.dp), tint = LocalAppUiSettings.current.palette.textTertiary)
-                        }
+                        NoResultsScene(
+                            query = searchQuery,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 420.dp)
+                        )
                     }
                 } else {
                     if (layoutMode == LayoutMode.LIST) {
-                        itemsIndexed(filteredVideos, key = { _, it -> it.id }) { index, video ->
-                            val entryAnimation = remember { Animatable(0f) }
-                            LaunchedEffect(Unit) {
-                                delay(index * 50L)
-                                entryAnimation.animateTo(1f, animationSpec = MotionSpec.SoftSpring)
-                            }
-                            Box(modifier = Modifier.graphicsLayer {
-                                translationY = 50f * (1f - entryAnimation.value)
-                                alpha = entryAnimation.value
-                            }) {
-                                VideoItem(
-                                    video = video,
-                                    isExpanded = expandedVideoId == video.id,
-                                    onToggle = {
-                                        expandedVideoId = if (expandedVideoId == video.id) null else video.id
-                                    },
-                                    onClick = { onVideoClick(video) },
-                                    onLongClick = { actionVideo = video }
-                                )
-                            }
+                        items(listVideos, key = { it.id }) { video ->
+                            VideoItem(
+                                video = video,
+                                isExpanded = expandedVideoId == video.id,
+                                onToggle = {
+                                    expandedVideoId = if (expandedVideoId == video.id) null else video.id
+                                },
+                                onClick = { onVideoClick(video) },
+                                onLongClick = { actionVideo = video }
+                            )
                         }
                     } else {
                         item {
                             FlowRow(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(14.dp),
                                 maxItemsInEachRow = 2
                             ) {
-                                for (video in filteredVideos) {
+                                for (video in listVideos) {
                                     Box(modifier = Modifier.weight(1f)) {
                                         VideoGridItem(video = video, onClick = { onVideoClick(video) }, onLongClick = { actionVideo = video })
                                     }
@@ -734,85 +1354,100 @@ fun DashboardScreen(
                     }
                 }
             }
-
-            // Top Gradient Fade
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(settings.palette.bg, Color.Transparent)
-                        )
-                    )
-            )
+            VideoActionsHost(actionVideo = actionVideo, activeDialog = activeDialog, allFolders = allFolders, onDismiss = { actionVideo = null; activeDialog = null }, onPickDialog = { activeDialog = it }, onVideoChanged = { expandedVideoId = null; onVideoChanged() }, onPlayVideo = onVideoClick)
         }
     }
-    VideoActionsHost(actionVideo = actionVideo, activeDialog = activeDialog, allFolders = allFolders, onDismiss = { actionVideo = null; activeDialog = null }, onPickDialog = { activeDialog = it }, onVideoChanged = { expandedVideoId = null; onVideoChanged() }, onPlayVideo = onVideoClick)
 }
 
 @androidx.media3.common.util.UnstableApi
 @Composable
-fun RecentVideoCard(video: VideoFile, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun RecentVideoCard(
+    video: VideoFile,
+    onClick: () -> Unit,
+    onRemove: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val context = LocalContext.current
     val settings = LocalAppUiSettings.current
     val haptic = LocalHapticFeedback.current
     val prefs = context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE)
-    val savedPos = prefs.getLong(video.path, 0L)
-    val progress = if (video.duration > 0) savedPos.toFloat() / video.duration.toFloat() else 0f
+    val savedPos = remember(video.path) { prefs.getLong(video.path, 0L) }
+    val progress = if (video.duration > 0 && savedPos > 0) (savedPos.toFloat() / video.duration.toFloat()).coerceIn(0.03f, 1f) else 0f
+    val leftMs = (video.duration - savedPos).coerceAtLeast(0L)
+    val leftMin = (leftMs / 60000L).toInt()
+    val leftStr = if (leftMin >= 60) "${leftMin / 60}h ${leftMin % 60}m left" else "${leftMin.coerceAtLeast(1)}m left"
 
     PremiumCardSurface(
-        modifier = modifier.width(280.dp).height(180.dp),
-        onClick = {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            onClick()
-        },
-        cornerRadius = 36.dp
+        modifier = modifier.width(236.dp).staggerIn(0),
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
+        onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onRemove() },
+        cornerRadius = 22.dp
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            if (LocalAppUiSettings.current.hideThumbnails) {
-                TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
-            } else {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            }
-            Box(
-                modifier = Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.8f)),
-                        startY = 0.3f
+        Column {
+            Box(Modifier.fillMaxWidth().aspectRatio(16 / 9f)) {
+                if (settings.hideThumbnails) {
+                    TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
+                } else {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.28f),
+                            0.35f to Color.Transparent,
+                            1f to Color.Black.copy(alpha = 0.62f)
+                        )
                     )
                 )
-            )
-            if (LocalAppUiSettings.current.showDurationBadge) {
-                DurationBadge(
-                    text = formatDuration(video.duration),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
-                )
+                // top: resolution tier (left) · dismiss (right)
+                Row(
+                    Modifier.fillMaxWidth().align(Alignment.TopStart).padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ResolutionMark(video.width, video.height)
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        Modifier.size(20.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.34f)).aliveClickable { onRemove() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(painterResource(R.drawable.ic_close_custom), "Remove from history", tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(10.dp))
+                    }
+                }
+                // bottom: play affordance (left) · time left / duration (right)
+                Row(
+                    Modifier.fillMaxWidth().align(Alignment.BottomStart).padding(start = 10.dp, end = 10.dp, bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Spacer(Modifier.weight(1f))
+                    MediaPill(if (savedPos > 0L) leftStr else formatDuration(video.duration))
+                }
+                if (progress > 0f) SleekProgress(progress, Modifier.align(Alignment.BottomCenter))
             }
-            Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    text = formatFileName(video.name),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = remember(video.path, video.name) { formatFileName(video.name) },
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                    color = settings.palette.textPrimary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Black
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
-                    color = settings.accent,
-                    trackColor = settings.palette.outlineFaint.copy(alpha = 0.5f)
-                )
-            }
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                BrandPlayOverlay(size = 48.dp)
+                Spacer(Modifier.height(3.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (savedPos > 0L) {
+                        Text(
+                            "Resume ${formatDuration(savedPos)}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = settings.accent
+                        )
+                    } else {
+                        NewMark(onMedia = false)
+                    }
+                }
             }
         }
     }
@@ -821,6 +1456,11 @@ fun RecentVideoCard(video: VideoFile, onClick: () -> Unit, modifier: Modifier = 
 @Composable
 fun VideoGridItem(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     val context = LocalContext.current
+    val settings = LocalAppUiSettings.current
+    val prefs = context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE)
+    val savedPos = remember(video.path) { prefs.getLong(video.path, 0L) }
+    val progress = if (video.duration > 0 && savedPos > 0) (savedPos.toFloat() / video.duration.toFloat()).coerceIn(0.04f, 1f) else 0f
+
     PremiumCardSurface(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
@@ -839,8 +1479,10 @@ fun VideoGridItem(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit
                         contentScale = ContentScale.Crop
                     )
                 }
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                    BrandPlayOverlay(size = 36.dp)
+                Row(Modifier.fillMaxWidth().align(Alignment.TopStart).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ResolutionMark(video.width, video.height)
+                    Spacer(Modifier.weight(1f))
+                    if (savedPos == 0L) NewMark()
                 }
                 if (LocalAppUiSettings.current.showDurationBadge) {
                     DurationBadge(
@@ -848,61 +1490,78 @@ fun VideoGridItem(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit
                         modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp)
                     )
                 }
+                if (progress > 0f) SleekProgress(progress, Modifier.align(Alignment.BottomCenter))
             }
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    text = formatFileName(video.name),
+                    text = formatDate(video.dateAdded),
                     style = MaterialTheme.typography.bodyMedium,
                     color = LocalAppUiSettings.current.palette.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (video.width > 0) {
-                        QualityBadge(width = video.width, height = video.height)
-                    }
-                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = if (progress > 0f) "${(progress * 100).toInt()}% watched" else formatSize(video.size),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalAppUiSettings.current.palette.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
 }
 
 @Composable
-fun FolderGridItem(folder: VideoFolder, onClick: () -> Unit) {
+fun FolderGridItem(folder: VideoFolder, thumbVideo: VideoFile? = null, totalSizeStr: String = "", onClick: () -> Unit) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
     PremiumCardSurface(
         modifier = Modifier.fillMaxWidth().aspectRatio(1f),
         onClick = {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onClick()
         },
-        cornerRadius = 32.dp
+        cornerRadius = 20.dp
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            BrandIconContainer(active = true, size = 64.dp, cornerRadius = 24.dp) {
-                Icon(painterResource(R.drawable.ic_folder_custom), null, tint = Color.White, modifier = Modifier.size(32.dp))
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (thumbVideo != null && !LocalAppUiSettings.current.hideThumbnails) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(thumbVideo.uri).videoFrameMillis(1000).crossfade(true).build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)))
             }
-            Spacer(modifier = Modifier.height(14.dp))
-            Text(
-                text = folder.name,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = "${folder.videoCount} Videos",
-                style = MaterialTheme.typography.labelSmall,
-                color = LocalAppUiSettings.current.palette.textSecondary,
-                fontWeight = FontWeight.Bold
-            )
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                BrandIconContainer(active = true, size = 56.dp, cornerRadius = 16.dp) {
+                    Icon(painterResource(R.drawable.ic_folder_custom), null, tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = folder.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (totalSizeStr.isNotEmpty()) "${folder.videoCount} Videos · $totalSizeStr" else "${folder.videoCount} Videos",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalAppUiSettings.current.palette.textSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
@@ -975,46 +1634,123 @@ fun FolderListScreen(
                 }
             }
             Box(modifier = Modifier.fillMaxSize()) {
+                if (filteredFolders.isEmpty() && searchQuery.isNotEmpty()) {
+                    NoResultsScene(query = searchQuery, modifier = Modifier.fillMaxSize().padding(padding))
+                }
                 if (layoutMode == LayoutMode.LIST) {
                     LazyColumn(
                         state = scrollState,
-                        modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                        contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
+                        modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                        contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 128.dp)
                     ) {
+                        if (searchQuery.isEmpty()) {
+                            item {
+                                val downloadsCount = remember(allVideos) { allVideos.count { it.path.contains("Download", ignoreCase = true) || it.path.contains("Camera", ignoreCase = true) } }
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    item {
+                                        GlassChip(
+                                            onClick = { onFolderClick(VideoFolder("All Media", "/", allVideos.size, "")) },
+                                            selected = true
+                                        ) {
+                                            Text(
+                                                text = "All",
+                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = Color.White,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                    item {
+                                        GlassChip(onClick = { onFolderClick(VideoFolder("Recent Videos", "/recent", allVideos.take(10).size, "")) }) {
+                                            Text(
+                                                text = "Recent",
+                                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = LocalAppUiSettings.current.palette.textPrimary,
+                                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                            )
+                                        }
+                                    }
+                                    if (downloadsCount > 0) {
+                                        item {
+                                            GlassChip(onClick = {
+                                                val downloadFolder = folders.firstOrNull { it.name.contains("Download", ignoreCase = true) || it.name.contains("Camera", ignoreCase = true) }
+                                                    ?: VideoFolder("Downloads", "/download", downloadsCount, "")
+                                                onFolderClick(downloadFolder)
+                                            }) {
+                                                Text(
+                                                    text = "Downloads",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                    color = LocalAppUiSettings.current.palette.textPrimary,
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         itemsIndexed(filteredFolders, key = { _, it -> it.path }) { index, folder ->
                             val entryAnimation = remember { Animatable(0f) }
                             LaunchedEffect(Unit) {
                                 delay(index * 30L)
                                 entryAnimation.animateTo(1f, animationSpec = MotionSpec.SoftSpring)
                             }
-                            PremiumCardSurface(
+                            val fVideos = remember(folder.path, allVideos) {
+                                allVideos.filter { File(it.path).parent == folder.path || it.path.startsWith(folder.path) }
+                            }
+                            val thumbVideo = fVideos.firstOrNull()
+                            val fSizeStr = remember(fVideos) { formatSize(fVideos.sumOf { it.size }) }
+
+                            ListRowSurface(
                                 modifier = Modifier
-                                    .padding(horizontal = 14.dp, vertical = 6.dp)
-                                    .fillMaxWidth()
                                     .graphicsLayer {
                                         translationY = 30f * (1f - entryAnimation.value)
                                         alpha = entryAnimation.value
                                     },
-                                cornerRadius = 24.dp,
                                 onClick = { onFolderClick(folder) }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(16.dp),
+                                    modifier = Modifier.padding(14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    BrandIconContainer(active = true, cornerRadius = 16.dp, size = 48.dp) {
-                                        Icon(painterResource(R.drawable.ic_folder_custom), null, tint = Color.White)
+                                    if (thumbVideo != null && !LocalAppUiSettings.current.hideThumbnails) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(52.dp)
+                                                .clip(RoundedCornerShape(14.dp))
+                                                .background(LocalAppUiSettings.current.palette.surfaceRaisedAlt)
+                                        ) {
+                                            val context = LocalContext.current
+                                            AsyncImage(
+                                                model = remember(thumbVideo.uri) {
+                                                    ImageRequest.Builder(context).data(thumbVideo.uri).videoFrameMillis(1000).crossfade(true).build()
+                                                },
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        }
+                                    } else {
+                                        BrandIconContainer(active = true, cornerRadius = 14.dp, size = 52.dp) {
+                                            Icon(painterResource(R.drawable.ic_folder_custom), null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                        }
                                     }
-                                    Spacer(modifier = Modifier.width(20.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = folder.name,
                                             style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Black,
-                                            color = LocalAppUiSettings.current.palette.textPrimary
+                                            fontWeight = FontWeight.Bold,
+                                            color = LocalAppUiSettings.current.palette.textPrimary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
-                                            text = "${folder.videoCount} Videos",
+                                            text = "${folder.videoCount} Videos · $fSizeStr",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = LocalAppUiSettings.current.palette.textSecondary,
                                             fontWeight = FontWeight.Bold
@@ -1034,34 +1770,28 @@ fun FolderListScreen(
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
                         state = androidx.compose.foundation.lazy.grid.rememberLazyGridState(),
-                        modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                        contentPadding = PaddingValues(top = padding.calculateTopPadding(), start = 16.dp, end = 16.dp, bottom = 100.dp),
+                        modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                        contentPadding = PaddingValues(top = padding.calculateTopPadding(), start = 16.dp, end = 16.dp, bottom = padding.calculateBottomPadding() + 128.dp),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(filteredFolders, key = { it.path }) { folder ->
-                            FolderGridItem(folder = folder, onClick = { onFolderClick(folder) })
+                            val fVideos = remember(folder.path, allVideos) {
+                                allVideos.filter { File(it.path).parent == folder.path || it.path.startsWith(folder.path) }
+                            }
+                            val thumbVideo = fVideos.firstOrNull()
+                            val fSizeStr = remember(fVideos) { formatSize(fVideos.sumOf { it.size }) }
+                            FolderGridItem(folder = folder, thumbVideo = thumbVideo, totalSizeStr = fSizeStr, onClick = { onFolderClick(folder) })
                         }
                     }
                 }
-
-                // Top Gradient Fade
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(LocalAppUiSettings.current.palette.bg, Color.Transparent)
-                            )
-                        )
-                )
             }
         }
     }
 }
 
 @androidx.media3.common.util.UnstableApi
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun VideoItem(
     video: VideoFile,
@@ -1089,7 +1819,6 @@ fun VideoItem(
                                 if (d > 0) (count.toFloat() / (d / 1000f)).toInt().toString() else null
                             }
                         }
-                    // Clean Frame Rate: 1 decimal place
                     frameRate = fps?.let {
                         val f = it.toFloatOrNull()
                         if (f != null) String.format("%.1f FPS", f) else "$it FPS"
@@ -1100,309 +1829,537 @@ fun VideoItem(
         }
     }
 
-    // Expressive Smooth expansion
-    val collapsedHeight = if (settings.compactList) 76.dp else 92.dp
-
-    val surfaceModifier = if (isExpanded) {
-        Modifier
-            .padding(horizontal = 14.dp, vertical = if (settings.compactList) 4.dp else 6.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onToggle()
-            }
-    } else {
-        Modifier
-            .padding(horizontal = 14.dp, vertical = if (settings.compactList) 4.dp else 6.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
-            .combinedClickable(
-                onClick = {
-                    if (isExpanded) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggle()
-                    } else {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onClick()
-                    }
-                },
-                onLongClick = {
+    // One AnimatedContent drives the whole collapsed <-> expanded morph. Before, the shell type
+    // changed (ListRowSurface <-> PremiumCardSurface), which recreated the content so the old
+    // animateContentSize never ran and the card simply popped open.
+    AnimatedContent(
+        targetState = isExpanded,
+        transitionSpec = {
+            val opening = targetState
+            (fadeIn(tween(300, delayMillis = 100, easing = LinearOutSlowInEasing)) +
+                    scaleIn(
+                        initialScale = if (opening) 0.95f else 0.985f,
+                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 300f),
+                        transformOrigin = TransformOrigin(0.5f, 0f)
+                    ))
+                .togetherWith(fadeOut(tween(110)))
+                .using(SizeTransform(clip = false) { _, _ ->
+                    spring<androidx.compose.ui.unit.IntSize>(dampingRatio = 0.88f, stiffness = 320f)
+                })
+        },
+        label = "videoCardMorph"
+    ) { isExpanded ->
+        VideoRowShell(
+            isExpanded = isExpanded,
+            onClick = {
+                if (isExpanded) {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onLongClick()
+                    onToggle()
+                } else {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
                 }
-            )
-    }
+            },
+            onLongClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onLongClick()
+            }
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (isExpanded) {
+                    var player by remember { mutableStateOf<ExoPlayer?>(null) }
+                    var videoAlpha by remember { mutableFloatStateOf(0f) }
+                    val animatedAlpha by animateFloatAsState(targetValue = videoAlpha, animationSpec = tween(700), label = "videoFade")
 
-    Surface(
-        modifier = surfaceModifier,
-        color = if (isDark) settings.palette.surfaceRaisedAlt.copy(alpha = if(isExpanded) 0.98f else 0.7f)
-        else settings.palette.surfaceRaisedAlt,
-        shape = RoundedCornerShape(32.dp),
-        border = BorderStroke(
-            if(isExpanded) 2.dp else 1.dp,
-            if(isExpanded) settings.accent.copy(alpha = 0.8f) else settings.palette.outlineMedium.copy(alpha = 0.4f)
-        ),
-        tonalElevation = 0.dp,
-        shadowElevation = if (isExpanded) 24.dp else (if (isDark) 4.dp else 2.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().animateContentSize(
-            animationSpec = spring(dampingRatio = 0.82f, stiffness = Spring.StiffnessLow)
-        )) {
-            // ── Top Section ──────────────────────────────────────────────
-            if (isExpanded) {
-                // Autoplay Preview Player
-                var player by remember { mutableStateOf<ExoPlayer?>(null) }
-                var videoAlpha by remember { mutableStateOf(0f) }
-                val animatedAlpha by animateFloatAsState(targetValue = videoAlpha, animationSpec = tween(1000), label = "videoFade")
+                    var videoWidth by remember { mutableIntStateOf(video.width) }
+                    var videoHeight by remember { mutableIntStateOf(video.height) }
+                    var videoDuration by remember { mutableLongStateOf(video.duration) }
 
-                // Technical data state
-                var videoWidth by remember { mutableIntStateOf(video.width) }
-                var videoHeight by remember { mutableIntStateOf(video.height) }
-                var videoDuration by remember { mutableLongStateOf(video.duration) }
-
-                LaunchedEffect(isExpanded) {
-                    if (isExpanded && (videoWidth == 0 || videoDuration == 0L)) {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val retriever = android.media.MediaMetadataRetriever()
-                                retriever.setDataSource(context, video.uri)
-                                val w = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
-                                val h = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
-                                val d = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
-                                videoWidth = w
-                                videoHeight = h
-                                videoDuration = d
-                                retriever.release()
-                            } catch (e: Exception) {}
-                        }
-                    }
-                }
-
-                DisposableEffect(video.uri) {
-                    val exoPlayer = ExoPlayer.Builder(context).build().apply {
-                        setMediaItem(MediaItem.fromUri(video.uri))
-                        volume = 0f // Muted autoplay
-                        repeatMode = Player.REPEAT_MODE_ALL
-                        playWhenReady = true
-                        addListener(object : Player.Listener {
-                            override fun onPlaybackStateChanged(state: Int) {
-                                if (state == Player.STATE_READY) videoAlpha = 1f
-                            }
-                        })
-                        prepare()
-                    }
-                    player = exoPlayer
-                    onDispose { exoPlayer.release(); player = null }
-                }
-
-                Column(modifier = Modifier.padding(20.dp)) {
-                    // Header: Title + Collapse
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = formatFileName(video.name),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = (-0.5).sp
-                            ),
-                            color = settings.palette.textPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = onToggle, modifier = Modifier.size(32.dp)) {
-                            Icon(painterResource(R.drawable.ic_chevron_up_custom), null, tint = settings.palette.textTertiary)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Large Hero Preview
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(16/9f)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(if (isDark) Color.Black.copy(0.3f) else settings.palette.bg)
-                    ) {
-                        if (settings.hideThumbnails) {
-                            TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
-                        } else {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-
-                            AndroidView(
-                                factory = { ctx ->
-                                    PlayerView(ctx).apply {
-                                        useController = false
-                                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                                        this.player = player
-                                    }
-                                },
-                                update = { view -> view.player = player },
-                                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = animatedAlpha }
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Clean Detail Rows with Separate Identity
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            VideoDetailCard(painterResource(R.drawable.ic_storage_custom), formatSize(video.size), BrandBlue, Modifier.weight(1f))
-                            VideoDetailCard(painterResource(R.drawable.ic_stopwatch_custom), formatDuration(videoDuration), BrandMagenta, Modifier.weight(1f))
-                            if (videoWidth > 0) {
-                                VideoDetailCard(painterResource(R.drawable.ic_frame_rate), qualityLabel(videoWidth, videoHeight), BrandOrange, Modifier.weight(1f))
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            VideoDetailCard(painterResource(R.drawable.ic_calendar_custom), formatDate(video.dateAdded), BrandSecondary, Modifier.weight(1.2f))
-                            VideoDetailCard(painterResource(R.drawable.ic_code_circle_custom), frameRate ?: "30 FPS", BrandCyan, Modifier.weight(1f))
-                            VideoDetailCard(painterResource(R.drawable.ic_description_custom), video.path.substringAfterLast(".", "UNK").uppercase(), BrandViolet, Modifier.weight(0.8f))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Primary Actions
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        PremiumButton(
-                            text = "Play Media Now",
-                            onClick = onClick,
-                            modifier = Modifier.weight(1f).height(56.dp),
-                            icon = { Icon(Icons.Rounded.PlayArrow, null, tint = Color.White) }
-                        )
-
-                        // File Location Button
-                        Surface(
-                            onClick = {
+                    LaunchedEffect(isExpanded) {
+                        if (isExpanded && (videoWidth == 0 || videoDuration == 0L)) {
+                            withContext(Dispatchers.IO) {
                                 try {
-                                    val file = File(video.path)
-                                    val parentFile = file.parentFile
-                                    if (parentFile != null) {
-                                        // Modern Android Intent for showing file location
-                                        val intent = Intent(Intent.ACTION_VIEW)
-                                        val builder = android.os.StrictMode.VmPolicy.Builder()
-                                        android.os.StrictMode.setVmPolicy(builder.build())
-                                        intent.setDataAndType(Uri.fromFile(parentFile), "resource/folder")
-                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                        context.startActivity(intent)
-                                    }
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Location: ${video.path}", android.widget.Toast.LENGTH_LONG).show()
+                                    val retriever = android.media.MediaMetadataRetriever()
+                                    retriever.setDataSource(context, video.uri)
+                                    val w = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toInt() ?: 0
+                                    val h = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toInt() ?: 0
+                                    val d = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: 0L
+                                    videoWidth = w
+                                    videoHeight = h
+                                    videoDuration = d
+                                    retriever.release()
+                                } catch (e: Exception) {}
+                            }
+                        }
+                    }
+
+                    DisposableEffect(video.uri) {
+                        val exoPlayer = ExoPlayer.Builder(context).build().apply {
+                            setMediaItem(MediaItem.fromUri(video.uri))
+                            volume = 0f
+                            repeatMode = Player.REPEAT_MODE_ALL
+                            playWhenReady = true
+                            addListener(object : Player.Listener {
+                                override fun onPlaybackStateChanged(state: Int) {
+                                    if (state == Player.STATE_READY) videoAlpha = 1f
                                 }
-                            },
-                            color = settings.palette.surfaceRaisedAlt,
-                            shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.size(56.dp),
-                            border = BorderStroke(1.dp, settings.palette.outlineMedium.copy(alpha = 0.5f))
+                            })
+                            prepare()
+                        }
+                        player = exoPlayer
+                        onDispose { exoPlayer.release(); player = null }
+                    }
+
+                    Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 14.dp)) {
+                        // ── Hero: live preview, soft cinematic fade, title + one quiet caption on the glass ──
+                        val heroShape = RoundedCornerShape(18.dp)
+                        val resTier = if (videoWidth > 0 && videoHeight > 0) qualityLabel(videoWidth, videoHeight) else "—"
+                        val fpsLabel = (frameRate ?: "30 FPS").replace(" FPS", "")
+                        val dimsLabel = if (videoWidth > 0 && videoHeight > 0) "${videoWidth}×${videoHeight}" else null
+                        val dateLabel = remember(video.path, video.dateAdded) { videoDateTitle(video) }
+                        val folderLabel = remember(video.path) { File(video.path).parentFile?.name ?: "Folder" }
+                        val expPrefs = remember { context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE) }
+                        val resumePos = remember(video.path) { expPrefs.getLong(video.path, 0L) }
+                        val resumeFrac = if (videoDuration > 0 && resumePos > 0) (resumePos.toFloat() / videoDuration.toFloat()).coerceIn(0.02f, 1f) else 0f
+
+                        // Hero opens like a lid: fades, scales up and settles from the top edge.
+                        val reveal = remember { Animatable(0f) }
+                        LaunchedEffect(Unit) {
+                            kotlinx.coroutines.delay(90)
+                            reveal.animateTo(1f, tween(560, easing = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)))
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16 / 9f)
+                                .graphicsLayer {
+                                    val v = reveal.value
+                                    alpha = v
+                                    val sc = 0.93f + 0.07f * v
+                                    scaleX = sc; scaleY = sc
+                                    translationY = (1f - v) * -18f
+                                    transformOrigin = TransformOrigin(0.5f, 0f)
+                                }
+                                .shadow(14.dp, heroShape, ambientColor = settings.accent.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.45f))
+                                .clip(heroShape)
+                                .background(if (isDark) Color.Black.copy(0.3f) else settings.palette.bg)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
+                            if (settings.hideThumbnails) {
+                                TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
+                            } else {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                                AndroidView(
+                                    factory = { ctx ->
+                                        (android.view.LayoutInflater.from(ctx)
+                                            .inflate(R.layout.coverplay_texture_player, null) as PlayerView).apply {
+                                            useController = false
+                                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                            this.player = player
+                                        }
+                                    },
+                                    update = { view ->
+                                        view.player = player
+                                        view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                    },
+                                    modifier = Modifier.fillMaxSize().graphicsLayer { alpha = animatedAlpha }
+                                )
+                            }
+
+                            // Cinematic fade: light at the top for the badge, deeper at the bottom for the title.
+                            Box(
+                                Modifier.fillMaxSize().background(
+                                    Brush.verticalGradient(
+                                        0f to Color.Black.copy(alpha = 0.30f),
+                                        0.38f to Color.Transparent,
+                                        0.55f to Color.Black.copy(alpha = 0.10f),
+                                        1f to Color.Black.copy(alpha = 0.82f)
+                                    )
+                                )
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(start = 12.dp, end = 4.dp, top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ResolutionMark(videoWidth, videoHeight)
+                                Spacer(Modifier.weight(1f))
+                                IconButton(onClick = onToggle, modifier = Modifier.size(40.dp)) {
+                                    Icon(
+                                        painterResource(R.drawable.ic_chevron_up_custom), "Collapse",
+                                        tint = Color.White.copy(alpha = 0.65f)
+                                    )
+                                }
+                            }
+
+                            Column(
+                                Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+                            ) {
+                                Text(
+                                    text = formatFileName(video.name),
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp
+                                    ),
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = listOfNotNull(dimsLabel, folderLabel, dateLabel).joinToString("  ·  "),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                    color = Color.White.copy(alpha = 0.72f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (resumeFrac > 0f) SleekProgress(resumeFrac, Modifier.align(Alignment.BottomCenter))
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        MetaStatRow(
+                            listOf(
+                                MetaStatItem(painterResource(R.drawable.ic_stopwatch_custom), "TIME", formatDuration(videoDuration)),
+                                MetaStatItem(painterResource(R.drawable.ic_code_circle_custom), "RES", resTier),
+                                MetaStatItem(painterResource(R.drawable.ic_frame_rate), "FPS", fpsLabel),
+                                MetaStatItem(painterResource(R.drawable.ic_description_custom), "SIZE", formatSize(video.size))
+                            ),
+                            modifier = Modifier.staggerIn(3)
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Primary Action: "Play" + folder + more
+                        Row(
+                            modifier = Modifier.fillMaxWidth().staggerIn(5),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PremiumButton(
+                                text = if (resumePos > 0L) "Resume ${formatDuration(resumePos)}" else "Play",
+                                onClick = onClick,
+                                modifier = Modifier.weight(1f),
+                                icon = { Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+                            )
+                            QuietIconButton(onClick = onLongClick) {
                                 Icon(
-                                    Icons.Rounded.Folder,
-                                    contentDescription = "Location",
-                                    tint = settings.accent,
-                                    modifier = Modifier.size(24.dp)
+                                    Icons.Rounded.MoreVert,
+                                    contentDescription = "More",
+                                    tint = settings.palette.textPrimary,
+                                    modifier = Modifier.size(20.dp).align(Alignment.Center)
                                 )
                             }
                         }
                     }
-                }
-            } else {
-                // Collapsed Row
-                val rowHeight = if (settings.compactList) 76.dp else 92.dp
-                Row(
-                    modifier = Modifier.height(rowHeight).padding(if (settings.compactList) 8.dp else 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (settings.compactList) 90.dp else 110.dp, if (settings.compactList) 60.dp else 68.dp)
-                            .clip(RoundedCornerShape(if (settings.compactList) 14.dp else 18.dp))
-                            .background(if (isDark) settings.palette.surfaceRaisedAlt else settings.palette.bg)
+                } else {
+                    // Collapsed Normal Row (~72dp height)
+                    val prefs = context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE)
+                    val savedPos = remember(video.path) { prefs.getLong(video.path, 0L) }
+                    val progress = if (video.duration > 0 && savedPos > 0) (savedPos.toFloat() / video.duration.toFloat()).coerceIn(0.02f, 1f) else 0f
+
+                    Row(
+                        modifier = Modifier.height(if (settings.compactList) 56.dp else 72.dp).padding(horizontal = 10.dp, vertical = if (settings.compactList) 5.dp else 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        if (settings.hideThumbnails) {
-                            TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
-                        } else {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
-                                contentDescription = null,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                            BrandPlayOverlay(size = if (settings.compactList) 28.dp else 36.dp)
-                        }
-                        if (settings.showDurationBadge) {
-                            DurationBadge(
-                                text = formatDuration(video.duration),
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(if (settings.compactList) 4.dp else 6.dp)
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(if (settings.compactList) 14.dp else 20.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = formatFileName(video.name),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = settings.palette.textPrimary,
-                            fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(text = formatSize(video.size), style = MaterialTheme.typography.labelSmall, color = LocalAppUiSettings.current.palette.textSecondary, fontWeight = FontWeight.Bold)
-                            if (video.width > 0) {
-                                QualityBadge(width = video.width, height = video.height)
+                        Box(
+                            modifier = Modifier
+                                .size(if (settings.compactList) 68.dp else 88.dp, if (settings.compactList) 42.dp else 56.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isDark) settings.palette.surfaceRaisedAlt else settings.palette.bg)
+                        ) {
+                            if (settings.hideThumbnails) {
+                                TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
+                            } else {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            // Duration badge ONLY — NO play button overlay
+                            if (settings.showDurationBadge) {
+                                DurationBadge(
+                                    text = formatDuration(video.duration),
+                                    modifier = Modifier.align(Alignment.BottomEnd).padding(4.dp)
+                                )
+                            }
+                            if (progress > 0f) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(3.dp),
+                                    color = settings.accent,
+                                    trackColor = Color.Black.copy(alpha = 0.4f)
+                                )
                             }
                         }
-                    }
-                    IconButton(onClick = onToggle) {
-                        Icon(painterResource(R.drawable.ic_chevron_down_custom), null, tint = settings.palette.textTertiary)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                        ) {
+                            Text(
+                                text = remember(video.path, video.dateAdded) { videoDateTitle(video) },
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
+                                color = settings.palette.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(5.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (savedPos == 0L) NewMark(onMedia = false)
+                                else Text(
+                                    "${(progress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = settings.accent
+                                )
+                                ResolutionMark(video.width, video.height, onMedia = false)
+                                Text(
+                                    formatSize(video.size),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = settings.palette.textTertiary,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        IconButton(onClick = onToggle) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_chevron_down_custom),
+                                contentDescription = "Expand",
+                                tint = settings.palette.textTertiary
+                            )
+                        }
                     }
                 }
             }
-
-            // Redesigned: Minimal details are now part of the expanded block above
         }
     }
+}
+
+/** Collapsed = quiet list row; expanded = the same solid-glass card used by Stream URL and Stats. */
+@Composable
+private fun VideoRowShell(
+    isExpanded: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    if (isExpanded) {
+        // "Stack" opening: two ghost cards fan out from underneath the card as it opens,
+        // like a deck being dealt. Drawn behind the card, so it costs no extra layout.
+        val st = LocalAppUiSettings.current
+        var open by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { open = true }
+        val stack by animateFloatAsState(
+            targetValue = if (open) 1f else 0f,
+            animationSpec = spring(dampingRatio = 0.74f, stiffness = 210f),
+            label = "cardStack"
+        )
+        val layerFill = st.palette.surfaceRaised
+        val layerEdge = st.accent
+        PremiumCardSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 8.dp + 16.dp * stack)
+                .staggerIn(0)
+                .drawBehind {
+                    val p = stack.coerceIn(0f, 1f)
+                    val corner = 22.dp.toPx()
+                    for (i in 2 downTo 1) {
+                        val inset = 14.dp.toPx() * i
+                        val drop = 8.dp.toPx() * i * stack
+                        val top = size.height - corner
+                        val w = size.width - inset * 2f
+                        val h = corner + drop
+                        val a = (0.78f - 0.28f * (i - 1)) * p
+                        drawRoundRect(
+                            layerFill.copy(alpha = a),
+                            androidx.compose.ui.geometry.Offset(inset, top),
+                            androidx.compose.ui.geometry.Size(w, h),
+                            androidx.compose.ui.geometry.CornerRadius(corner)
+                        )
+                        drawRoundRect(
+                            layerEdge.copy(alpha = 0.16f * p),
+                            androidx.compose.ui.geometry.Offset(inset, top),
+                            androidx.compose.ui.geometry.Size(w, h),
+                            androidx.compose.ui.geometry.CornerRadius(corner),
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx())
+                        )
+                    }
+                },
+            cornerRadius = 22.dp,
+            onClick = onClick,
+            onLongClick = onLongClick
+        ) { content() }
+    } else {
+        ListRowSurface(
+            modifier = Modifier.fillMaxWidth().staggerIn(0),
+            onClick = onClick,
+            onLongClick = onLongClick
+        ) { content() }
+    }
+}
+
+// ── Suggested: smart ranking + a premium "Top pick" hero ─────────────────────────────────────────
+
+/** Ranks the library for "For you": unwatched + fresh first, a nudge for unfinished, a daily shuffle so it feels alive. */
+private fun rankSuggested(videos: List<VideoFile>, prefs: android.content.SharedPreferences): List<VideoFile> {
+    if (videos.isEmpty()) return videos
+    val day = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_YEAR)
+    val newest = videos.maxOf { it.dateAdded }
+    val oldest = videos.minOf { it.dateAdded }
+    val span = (newest - oldest).coerceAtLeast(1L).toFloat()
+    return videos.sortedByDescending { v ->
+        val saved = prefs.getLong(v.path, 0L)
+        val frac = if (v.duration > 0L && saved > 0L) saved.toFloat() / v.duration.toFloat() else 0f
+        var score = 0f
+        if (saved == 0L) score += 40f
+        score += 30f * ((v.dateAdded - oldest).toFloat() / span)
+        if (v.duration in 60_000L..600_000L) score += 10f
+        if (v.width >= 3840 || v.height >= 2160) score += 8f
+        if (frac >= 0.95f) score -= 50f else if (frac >= 0.05f) score += 12f
+        score += ((v.id.hashCode() * 31 + day * 17) and 0xFF) / 255f * 15f
+        score
+    }
+}
+
+private fun suggestionReason(v: VideoFile, savedPos: Long): String {
+    val frac = if (v.duration > 0L && savedPos > 0L) savedPos.toFloat() / v.duration.toFloat() else 0f
+    val ageDays = (System.currentTimeMillis() / 1000L - v.dateAdded) / 86_400L
+    return when {
+        frac >= 0.5f -> "Almost finished"
+        frac > 0f -> "Pick up again"
+        v.dateAdded > 0L && ageDays <= 7L -> "Fresh arrival"
+        v.width >= 3840 || v.height >= 2160 -> "4K showcase"
+        v.duration in 1L..120_000L -> "Quick watch"
+        else -> "Not watched yet"
+    }
+}
+
+@Composable
+private fun SuggestedHero(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit) {
+    val context = LocalContext.current
+    val settings = LocalAppUiSettings.current
+    val haptic = LocalHapticFeedback.current
+    val prefs = remember { context.getSharedPreferences("playback_positions", Context.MODE_PRIVATE) }
+    val savedPos = remember(video.path) { prefs.getLong(video.path, 0L) }
+    val reason = remember(video.path, savedPos) { suggestionReason(video, savedPos) }
+    val progress = if (video.duration > 0L && savedPos > 0L) (savedPos.toFloat() / video.duration.toFloat()).coerceIn(0.03f, 1f) else 0f
+
+    PremiumCardSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp).staggerIn(0),
+        cornerRadius = 22.dp,
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
+        onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }
+    ) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16 / 9f)) {
+            if (settings.hideThumbnails) {
+                TriangleThumbPlaceholder(modifier = Modifier.fillMaxSize())
+            } else {
+                AsyncImage(
+                    model = ImageRequest.Builder(context).data(video.uri).videoFrameMillis(1000).crossfade(true).build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(
+                        0f to Color.Black.copy(alpha = 0.30f),
+                        0.40f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.82f)
+                    )
+                )
+            )
+            Row(
+                Modifier.fillMaxWidth().align(Alignment.TopStart).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier.clip(CircleShape).background(settings.accent.copy(alpha = 0.92f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        "TOP PICK",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp),
+                        color = Color.White
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                ResolutionMark(video.width, video.height)
+            }
+            Column(
+                Modifier.align(Alignment.BottomStart).padding(start = 16.dp, end = 76.dp, bottom = 16.dp)
+            ) {
+                Text(
+                    reason.uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp),
+                    color = settings.highlight
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text = remember(video.path, video.name) { formatFileName(video.name) },
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "${formatDuration(video.duration)}  ·  ${formatSize(video.size)}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = Color.White.copy(alpha = 0.72f),
+                    maxLines = 1
+                )
+            }
+            BrandMark(
+                size = 52.dp,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 14.dp, bottom = 14.dp)
+                    .shadow(12.dp, CircleShape, ambientColor = settings.accent.copy(alpha = 0.25f), spotColor = settings.accent.copy(alpha = 0.50f))
+            )
+            if (progress > 0f) SleekProgress(progress, Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
+
+/** Glass action button matching MetaStatRow design for consistency inside expanded video cards. */
+@Composable
+private fun QuietIconButton(onClick: () -> Unit, content: @Composable BoxScope.() -> Unit) {
+    val st = LocalAppUiSettings.current
+    val tintBase = if (st.palette.isDark) Color.White else IconIndigo
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(tintBase.copy(alpha = 0.07f), tintBase.copy(alpha = 0.03f))))
+            .border(0.8.dp, Brush.verticalGradient(listOf(tintBase.copy(alpha = 0.18f), tintBase.copy(alpha = 0.05f))), shape)
+            .aliveClickable { onClick() },
+        contentAlignment = Alignment.Center,
+        content = content
+    )
 }
 
 @Composable
 fun VideoDetailCard(icon: Painter, text: String, color: Color = LocalAppUiSettings.current.accent, modifier: Modifier = Modifier) {
     val settings = LocalAppUiSettings.current
-    Surface(
+    GlassSurface(
         modifier = modifier,
-        color = color.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(vertical = 10.dp, horizontal = 8.dp),
@@ -1418,7 +2375,7 @@ fun VideoDetailCard(icon: Painter, text: String, color: Color = LocalAppUiSettin
             Spacer(Modifier.height(6.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                 color = settings.palette.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1546,8 +2503,8 @@ fun VideoListScreen(
             if (layoutMode == LayoutMode.LIST) {
                 LazyColumn(
                     state = scrollState,
-                    modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
+                    modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 128.dp)
                 ) {
                     itemsIndexed(filtered, key = { _, it -> it.id }) { index, video ->
                         val entryAnimation = remember { Animatable(0f) }
@@ -1576,8 +2533,8 @@ fun VideoListScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     state = androidx.compose.foundation.lazy.grid.rememberLazyGridState(),
-                    modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), start = 16.dp, end = 16.dp, bottom = 100.dp),
+                    modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), start = 16.dp, end = 16.dp, bottom = padding.calculateBottomPadding() + 128.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -1587,17 +2544,6 @@ fun VideoListScreen(
                 }
             }
 
-            // Top Gradient Fade
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(LocalAppUiSettings.current.palette.bg, Color.Transparent)
-                        )
-                    )
-            )
         }
     }
     VideoActionsHost(actionVideo = actionVideo, activeDialog = activeDialog, allFolders = allFolders, onDismiss = { actionVideo = null; activeDialog = null }, onPickDialog = { activeDialog = it }, onVideoChanged = { expandedVideoId = null; onVideoChanged() }, onPlayVideo = onVideoClick)
@@ -1607,8 +2553,9 @@ fun VideoListScreen(
 @Composable
 fun FilterSortSheet(currentSort: FolderSortOrder, currentLayout: LayoutMode, onSortSelected: (FolderSortOrder) -> Unit, onLayoutSelected: (LayoutMode) -> Unit, onDismiss: () -> Unit) {
     PremiumBottomSheet(onDismiss = onDismiss) {
-        Text("Sort Options", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = LocalAppUiSettings.current.palette.textPrimary)
-        Spacer(modifier = Modifier.height(24.dp))
+        Text("Sort Options", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = LocalAppUiSettings.current.palette.textPrimary)
+        QuipLine(Quips.dialog("sort options"), modifier = Modifier.padding(top = 2.dp))
+        Spacer(modifier = Modifier.height(22.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             FolderSortOrder.entries.forEach { order ->
                 val isSelected = order == currentSort
@@ -1632,8 +2579,9 @@ fun FilterSortSheet(currentSort: FolderSortOrder, currentLayout: LayoutMode, onS
 @Composable
 fun VideoFilterSortSheet(currentSort: VideoSortOrder, currentLayout: LayoutMode, onSortSelected: (VideoSortOrder) -> Unit, onLayoutSelected: (LayoutMode) -> Unit, onDismiss: () -> Unit) {
     PremiumBottomSheet(onDismiss = onDismiss) {
-        Text("Order & Layout", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = LocalAppUiSettings.current.palette.textPrimary)
-        Spacer(modifier = Modifier.height(24.dp))
+        Text("Order & Layout", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = LocalAppUiSettings.current.palette.textPrimary)
+        QuipLine(Quips.dialog("order layout sort"), modifier = Modifier.padding(top = 2.dp))
+        Spacer(modifier = Modifier.height(22.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             VideoSortOrder.entries.forEach { order ->
                 val isSelected = order == currentSort
@@ -1656,6 +2604,7 @@ fun VideoFilterSortSheet(currentSort: VideoSortOrder, currentLayout: LayoutMode,
 @Composable
 fun VideoActionsHost(actionVideo: VideoFile?, activeDialog: VideoActionDialog?, allFolders: List<VideoFolder>, onDismiss: () -> Unit, onPickDialog: (VideoActionDialog) -> Unit, onVideoChanged: () -> Unit, onPlayVideo: (VideoFile) -> Unit) {
     val video = actionVideo ?: return; val context = LocalContext.current; var pendingRetry by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val confirmDeleteOn = remember { context.getSharedPreferences("coverplay_settings_v3", Context.MODE_PRIVATE).getBoolean("confirm_delete", true) }
     val consentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             // On Android 11+, if the user just approved a DELETE request, the file is already gone.
@@ -1667,6 +2616,8 @@ fun VideoActionsHost(actionVideo: VideoFile?, activeDialog: VideoActionDialog?, 
                 pendingRetry?.invoke()
             }
         }
+        // Cancelled the system prompt while deleting without our own dialog: close the host so it never gets stuck.
+        if (result.resultCode != Activity.RESULT_OK && !confirmDeleteOn && activeDialog == VideoActionDialog.DELETE) onDismiss()
         pendingRetry = null
     }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -1683,14 +2634,18 @@ fun VideoActionsHost(actionVideo: VideoFile?, activeDialog: VideoActionDialog?, 
     when (activeDialog ?: VideoActionDialog.MENU) {
         VideoActionDialog.MENU -> VideoActionMenuSheet(video = video, onDismiss = onDismiss, onRename = { onPickDialog(VideoActionDialog.RENAME) }, onDelete = { onPickDialog(VideoActionDialog.DELETE) }, onMove = { onPickDialog(VideoActionDialog.MOVE) }, onAddToPlaylist = { onPickDialog(VideoActionDialog.ADD_TO_PLAYLIST) })
         VideoActionDialog.RENAME -> RenameDialog(video = video, onDismiss = onDismiss, onRename = { newName -> handleResult(renameVideoFile(context, video, newName), onSuccess = { onDismiss(); onVideoChanged() }, retry = { onPickDialog(VideoActionDialog.RENAME) }) })
-        VideoActionDialog.DELETE -> DeleteDialog(video = video, onDismiss = onDismiss, onDelete = { handleResult(deleteVideoFile(context, video), onSuccess = { onDismiss(); onVideoChanged() }, retry = { onPickDialog(VideoActionDialog.DELETE) }) })
+        VideoActionDialog.DELETE -> {
+            val doDelete = { handleResult(deleteVideoFile(context, video), onSuccess = { onDismiss(); onVideoChanged() }, retry = { onPickDialog(VideoActionDialog.DELETE) }) }
+            if (confirmDeleteOn) DeleteDialog(video = video, onDismiss = onDismiss, onDelete = { doDelete() })
+            else LaunchedEffect(video.id) { doDelete() }
+        }
         VideoActionDialog.MOVE -> MoveToFolderDialog(video = video, allFolders = allFolders, onDismiss = onDismiss, onMove = { folderPath -> handleResult(moveVideoFile(context, video, folderPath), onSuccess = { onDismiss(); onVideoChanged() }, retry = { onPickDialog(VideoActionDialog.MOVE) }) })
         VideoActionDialog.ADD_TO_PLAYLIST -> AddToPlaylistDialog(video = video, onDismiss = onDismiss)
         VideoActionDialog.DETAILS -> DetailsDialog(video = video, onDismiss = onDismiss)
         else -> PlaceholderScreen(activeDialog?.name ?: "Action")
     }
     if (errorMessage != null) {
-        PremiumAlertDialog(onDismiss = { errorMessage = null }, title = "Error", text = errorMessage!!, confirmButton = { TextButton(onClick = { errorMessage = null }) { Text("OK") } })
+        PremiumAlertDialog(onDismiss = { errorMessage = null }, title = "Error", text = errorMessage!!, confirmButton = { TextButton(onClick = { errorMessage = null; if (!confirmDeleteOn && activeDialog == VideoActionDialog.DELETE) onDismiss() }) { Text("OK") } })
     }
 }
 
@@ -1708,6 +2663,8 @@ fun RenameDialog(video: VideoFile, onDismiss: () -> Unit, onRename: (String) -> 
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = BrandAccent,
                 unfocusedBorderColor = LocalAppUiSettings.current.palette.outlineMedium,
+                focusedContainerColor = glassFieldFill(),
+                unfocusedContainerColor = glassFieldFill(),
                 cursorColor = BrandAccent
             )
         )
@@ -1739,15 +2696,17 @@ fun DeleteDialog(video: VideoFile, onDismiss: () -> Unit, onDelete: () -> Unit) 
                 Text("Cancel", color = LocalAppUiSettings.current.palette.textTertiary, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.width(16.dp))
-            Surface(
-                onClick = onDelete,
-                color = BrandRed,
-                shape = CircleShape,
-                modifier = Modifier.height(44.dp)
+            val deleteHaptic = LocalHapticFeedback.current
+            PremiumScaleButton(
+                onClick = { deleteHaptic.performHapticFeedback(HapticFeedbackType.LongPress); onDelete() },
+                modifier = Modifier
+                    .height(48.dp)
+                    .shadow(12.dp, CircleShape, ambientColor = BrandRed.copy(alpha = 0.25f), spotColor = BrandRed.copy(alpha = 0.55f))
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(BrandRed, BrandRed.copy(alpha = 0.82f))))
+                    .padding(horizontal = 28.dp)
             ) {
-                Box(modifier = Modifier.padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
-                    Text("Delete", color = Color.White, fontWeight = FontWeight.Black)
-                }
+                Text("Delete", color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1755,8 +2714,9 @@ fun DeleteDialog(video: VideoFile, onDismiss: () -> Unit, onDelete: () -> Unit) 
 @Composable
 fun MoveToFolderDialog(video: VideoFile, allFolders: List<VideoFolder>, onDismiss: () -> Unit, onMove: (String) -> Unit) {
     PremiumBottomSheet(onDismiss = onDismiss) {
-        Text("Move to Folder", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = LocalAppUiSettings.current.palette.textPrimary)
-        Spacer(modifier = Modifier.height(24.dp))
+        Text("Move to Folder", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = LocalAppUiSettings.current.palette.textPrimary)
+        QuipLine(Quips.dialog("move to folder"), modifier = Modifier.padding(top = 2.dp))
+        Spacer(modifier = Modifier.height(22.dp))
         LazyColumn(
             modifier = Modifier.heightIn(max = 400.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -1816,131 +2776,215 @@ fun DetailItemExpressive(icon: Painter, label: String, value: String) {
     }
 }
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 private fun VideoActionMenuSheet(video: VideoFile, onDismiss: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit, onMove: () -> Unit, onAddToPlaylist: () -> Unit) {
     val context = LocalContext.current
-    PremiumBottomSheet(onDismiss = onDismiss) {
-        Text(
-            text = formatFileName(video.name),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Black,
-            color = LocalAppUiSettings.current.palette.textPrimary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            VideoActionRow(painterResource(R.drawable.ic_share), "Share Media", onClick = {
-                val intent = Intent(Intent.ACTION_SEND).apply {
-                    type = "video/*"
-                    putExtra(Intent.EXTRA_STREAM, video.uri)
+    val settings = LocalAppUiSettings.current
+    val accent = settings.accent
+    // Same mechanism as the Appearance card: a Popup (no full-screen dialog, no dim) so the
+    // video cards stay visible behind a live-blurred glass card.
+    val center = remember {
+        object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize) =
+                IntOffset((windowSize.width - popupContentSize.width) / 2, (windowSize.height - popupContentSize.height) / 2)
+        }
+    }
+    Popup(popupPositionProvider = center, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
+        var shown by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { shown = true }
+        androidx.compose.animation.AnimatedVisibility(
+            visible = shown,
+            enter = fadeIn(tween(160)) + scaleIn(spring(0.75f, 420f), initialScale = 0.88f),
+            exit = fadeOut(tween(120))
+        ) {
+            GlassSurface(
+                modifier = Modifier.width(280.dp),
+                shape = RoundedCornerShape(26.dp),
+                blur = true,
+                glow = accent
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "FILE ACTIONS",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp),
+                                color = accent
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = formatFileName(video.name),
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+                                color = settings.palette.textPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        PremiumDialogCloseButton(onClick = onDismiss)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        GlassIconAction(painterResource(R.drawable.ic_share), "Share", onClick = {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "video/*"
+                                putExtra(Intent.EXTRA_STREAM, video.uri)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Video"))
+                            onDismiss()
+                        })
+                        GlassIconAction(painterResource(R.drawable.ic_rename_custom), "Rename", onClick = onRename)
+                        GlassIconAction(painterResource(R.drawable.ic_playlist_add_custom), "Add to playlist", onClick = onAddToPlaylist)
+                        GlassIconAction(painterResource(R.drawable.ic_move_custom), "Move to folder", onClick = onMove)
+                        GlassIconAction(painterResource(R.drawable.ic_trash_custom), "Delete", onClick = onDelete, tint = BrandRed)
+                    }
+                    QuipLine(Quips.dialog("file actions"), modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
                 }
-                context.startActivity(Intent.createChooser(intent, "Share Video"))
-                onDismiss()
-            })
-            VideoActionRow(painterResource(R.drawable.ic_rename_custom), "Rename File", onClick = onRename)
-            VideoActionRow(painterResource(R.drawable.ic_playlist_add_custom), "Add to Playlist", onClick = onAddToPlaylist)
-            VideoActionRow(painterResource(R.drawable.ic_move_custom), "Move to Folder", onClick = onMove)
-            Spacer(modifier = Modifier.height(8.dp))
-            VideoActionRow(painterResource(R.drawable.ic_trash_custom), "Delete Permanently", tint = BrandRed, bg = BrandRed.copy(alpha = 0.1f), onClick = onDelete)
-        }
-    }
-}
-
-@Composable
-private fun VideoActionRow(icon: Painter, label: String, tint: Color = BrandAccent, bg: Color? = null, onClick: () -> Unit) {
-    PremiumCardSurface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 20.dp
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(bg ?: tint.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
             }
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(label, style = MaterialTheme.typography.titleMedium, color = if(tint == BrandRed) BrandRed else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
-            Spacer(modifier = Modifier.weight(1f))
-            Icon(painterResource(R.drawable.ic_chevron_right_custom), null, tint = LocalAppUiSettings.current.palette.textTertiary.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
         }
     }
 }
+
 @Composable
-private fun SectionLabel(text: String) {
+private fun LivePreviewTag() {
+    val t = rememberInfiniteTransition(label = "liveDot")
+    val a = t.animateFloat(0.35f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "liveDotA")
     val accent = LocalAppUiSettings.current.accent
-    val dynamicGradient = remember(accent) {
-        Brush.linearGradient(colors = listOf(IconSky, accent, IconPeriwinkle))
-    }
-
-    val infinite = rememberInfiniteTransition(label = "labelBloom")
-    val breathe by infinite.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.2f,
-        animationSpec = infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "breathe"
-    )
-
     Row(
-        modifier = Modifier.padding(start = 24.dp, top = 32.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier
+            .glassBadge(Color.Black.copy(alpha = 0.45f), Color.White)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(
-            modifier = Modifier
-                .width(6.dp)
-                .height(24.dp)
-                .graphicsLayer { scaleY = breathe }
-                .clip(CircleShape)
-                .background(dynamicGradient)
-                .shadow(12.dp, CircleShape, spotColor = accent)
+            Modifier.size(7.dp)
+                .graphicsLayer { alpha = a.value; val sc = 0.8f + 0.4f * a.value; scaleX = sc; scaleY = sc }
+                .background(accent, CircleShape)
         )
-        Spacer(modifier = Modifier.width(16.dp))
         Text(
-            text = text.uppercase(),
-            style = MaterialTheme.typography.labelLarge.copy(
-                color = LocalAppUiSettings.current.palette.textPrimary,
-                letterSpacing = 3.sp,
-                fontWeight = FontWeight.Black
-            )
+            "PREVIEW",
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp),
+            color = Color.White
         )
     }
 }
-@Composable
-fun EmptyState(title: String, subtitle: String, icon: @Composable () -> Unit) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { icon(); Spacer(modifier = Modifier.height(16.dp)); Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text(subtitle, color = LocalAppUiSettings.current.palette.textSecondary) } } }
-@Composable
-fun PlayUrlDialog(onDismiss: () -> Unit, onPlay: (String) -> Unit) {
-    val context = LocalContext.current
-    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-    var url by remember { mutableStateOf("") }
 
-    PremiumDialog(onDismiss = onDismiss, title = "Play URL") {
-        TextField(
-            value = url,
-            onValueChange = { url = it },
-            placeholder = { Text("https://...") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent,
-                focusedIndicatorColor = BrandAccent,
-                cursorColor = BrandAccent
+@Composable
+private fun IconValueGlassChip(
+    icon: Painter,
+    value: String,
+    color: Color = LocalAppUiSettings.current.palette.textPrimary,
+    modifier: Modifier = Modifier
+) {
+    GlassSurface(
+        modifier = modifier,
+        shape = CircleShape,
+        elevation = 2.dp
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Icon(
+                painter = icon,
+                contentDescription = null,
+                tint = LocalAppUiSettings.current.accent,
+                modifier = Modifier.size(15.dp)
             )
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextButton(onClick = {
-                val clip = clipboardManager.primaryClip
-                if (clip != null && clip.itemCount > 0) {
-                    url = clip.getItemAt(0).text.toString()
-                }
-            }) {
-                Text("Paste Link", color = BrandAccent, fontWeight = FontWeight.Bold)
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            PremiumButton(text = "Play", onClick = { onPlay(url) }, enabled = url.isNotBlank())
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                ),
+                color = color,
+                maxLines = 1
+            )
         }
     }
 }
+
+@Composable
+private fun SectionLabel(text: String, count: Int? = null) {
+    SectionHeader(title = text, count = count)
+}
+
+/** Card title: the date only. Falls back to the file's modified time when MediaStore has none. */
+fun videoDateTitle(video: VideoFile): String {
+    if (video.dateAdded > 0L) return formatDate(video.dateAdded)
+    val modified = runCatching { File(video.path).lastModified() }.getOrDefault(0L)
+    return if (modified > 0L) formatDate(modified / 1000) else formatDate(0L)
+}
+
+private data class MetaStatItem(
+    val icon: Painter,
+    val label: String,
+    val value: String
+)
+
+/** Premium metadata strip: one glass container, evenly split, with fading hairline dividers. */
+@Composable
+private fun MetaStatRow(items: List<MetaStatItem>, modifier: Modifier = Modifier) {
+    val settings = LocalAppUiSettings.current
+    val tintBase = if (settings.palette.isDark) Color.White else IconIndigo
+    val shape = RoundedCornerShape(18.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(tintBase.copy(alpha = 0.07f), tintBase.copy(alpha = 0.03f))))
+            .border(0.8.dp, Brush.verticalGradient(listOf(tintBase.copy(alpha = 0.18f), tintBase.copy(alpha = 0.05f))), shape)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp, horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEachIndexed { i, stat ->
+                if (i > 0) {
+                    Box(
+                        Modifier
+                            .width(1.dp)
+                            .height(34.dp)
+                            .background(Brush.verticalGradient(listOf(Color.Transparent, tintBase.copy(alpha = 0.16f), Color.Transparent)))
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        painter = stat.icon,
+                        contentDescription = null,
+                        tint = settings.accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stat.value,
+                        style = MaterialTheme.typography.titleSmall.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                        color = settings.palette.textPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = stat.label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.2.sp
+                        ),
+                        color = settings.palette.textTertiary,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun EmptyState(title: String, subtitle: String, icon: @Composable () -> Unit) { Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { icon(); Spacer(modifier = Modifier.height(16.dp)); Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text(subtitle, color = LocalAppUiSettings.current.palette.textSecondary); Spacer(modifier = Modifier.height(10.dp)); QuipLine(Quips.empty(title), align = TextAlign.Center) } } }
 @androidx.media3.common.util.UnstableApi
 @Composable
 fun RecentsScreen(
@@ -1981,7 +3025,9 @@ fun RecentsScreen(
         },
         containerColor = Color.Transparent
     ) { padding ->
-        if (filtered.isEmpty()) {
+        if (filtered.isEmpty() && searchQuery.isNotEmpty()) {
+            NoResultsScene(query = searchQuery, modifier = Modifier.fillMaxSize().padding(padding))
+        } else if (filtered.isEmpty()) {
             EmptyState(title = "No History", subtitle = "Your recently played videos appear here") {
                 Icon(painterResource(R.drawable.ic_history_custom), null, modifier = Modifier.size(56.dp), tint = LocalAppUiSettings.current.palette.textTertiary)
             }
@@ -1989,8 +3035,8 @@ fun RecentsScreen(
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = scrollState,
-                    modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
-                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 100.dp)
+                    modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 128.dp)
                 ) {
                     itemsIndexed(filtered, key = { _, it -> it.video.id }) { index, entry ->
                         val entryAnimation = remember { Animatable(0f) }
@@ -2013,18 +3059,6 @@ fun RecentsScreen(
                         }
                     }
                 }
-
-                // Top Gradient Fade
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(40.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(LocalAppUiSettings.current.palette.bg, Color.Transparent)
-                            )
-                        )
-                )
             }
         }
     }

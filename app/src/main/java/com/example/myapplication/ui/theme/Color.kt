@@ -1,140 +1,103 @@
 package com.example.myapplication.ui.theme
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  COVERPLAY — "Iris Bloom" Expressive Palette (v8.0)
+//  COVERPLAY COLOR SYSTEM (v9) — one source of truth: the active AppTheme
 //
-//  Pulled directly from the app icon: the periwinkle→royal-blue flower petals
-//  wrapping a white play triangle. Every mode below (Light / Dark / AMOLED)
-//  is built around the same two anchor hues so the brand reads identically
-//  everywhere, only the canvas around it changes.
+//  Every colour that used to be a hard-coded "Iris blue" constant (IconSky,
+//  IconPeriwinkle, BrandAccent, BrandGradient, BgBase, TextPrimary …) is now a
+//  live getter backed by [LiveTheme]. MyApplicationTheme pushes the active
+//  theme + mode into LiveTheme before any content composes, so legacy call
+//  sites everywhere in the app recolour automatically — no blue can leak.
+//
+//  Per-theme palettes themselves are built in Theme.kt (AppTheme.palette()).
 // ═════════════════════════════════════════════════════════════════════════════
 
-// ── Icon-derived brand hues ──────────────────────────────────────────────────
-val IconPeriwinkle   = Color(0xFF9DB4F5)   // light petal highlight
-val IconIndigo       = Color(0xFF3654E0)   // petal core
-val IconRoyalBlue    = Color(0xFF1E3AC7)   // deep petal shadow
-val IconSky          = Color(0xFF5B7CFA)   // mid petal
-val IconWhite        = Color(0xFFFFFFFF)   // play triangle
+/** Snapshot-state holder for the active theme's roles. Reads recompose automatically. */
+object LiveTheme {
+    var accent by mutableStateOf(Color(0xFF4660F0))
+    var highlight by mutableStateOf(Color(0xFFA9BCFF))
+    var secondary by mutableStateOf(Color(0xFF00C2D1))
+    var palette by mutableStateOf(AppTheme.IRIS_ROYAL.palette(ThemeMode.DARK))
 
-// ── Brand roles (used across all theme modes) ────────────────────────────────
-val BrandPrimary      = IconIndigo
-val BrandSecondary    = IconSky
-val BrandTertiary     = Color(0xFF00C2D1)   // cyan pop, complements indigo
-val BrandAccent       = IconPeriwinkle      // expressive accent for badges/glows
-val BrandOrange       = Color(0xFFFF8C3B)   // 4K / quality accent
-val BrandMagenta      = Color(0xFFB23BFF)
+    /** Pushes a theme/mode in. Only writes on change so it never invalidates needlessly. */
+    fun sync(theme: AppTheme, mode: ThemeMode) {
+        val a = theme.accentFor(mode)
+        val h = theme.highlightFor(mode)
+        val s = theme.secondaryFor(mode)
+        val p = theme.palette(mode)
+        if (accent != a) accent = a
+        if (highlight != h) highlight = h
+        if (secondary != s) secondary = s
+        if (palette !== p) palette = p
+    }
+}
 
-// Aliases kept for compatibility with existing call sites
-val BrandBlue         = BrandPrimary
-val BrandRed          = Color(0xFFFF4D5E)
-val BrandHighlight    = Color(0xFFFFFFFF)
-val BrandIceBlue      = Color(0xFFE7ECFF)
-val BrandGold         = Color(0xFFFFC64D)
-val BrandGoldLight    = Color(0xFFFFF0CE)
-val BrandViolet       = Color(0xFF8A6BFF)
-val BrandCyan         = BrandTertiary
+// ── Theme-derived "icon" hues (names kept so existing call sites compile) ───
+val IconPeriwinkle: Color get() = LiveTheme.highlight                                        // light petal / sheen
+val IconIndigo: Color get() = LiveTheme.accent                                               // petal core
+val IconRoyalBlue: Color get() = lerp(LiveTheme.accent, Color.Black, 0.45f)                  // deep petal shadow
+val IconSky: Color get() = lerp(LiveTheme.accent, LiveTheme.highlight, 0.35f)                // mid petal
+val IconWhite = Color(0xFFFFFFFF)
 
-// ── Brand gradients (petal → petal, matching icon rotation) ─────────────────
-val BrandGradient = Brush.linearGradient(
-    colors = listOf(IconSky, IconIndigo, IconPeriwinkle)
-)
-val BrandGradientSoft = Brush.linearGradient(
-    colors = listOf(IconSky.copy(alpha = 0.85f), IconIndigo.copy(alpha = 0.85f))
-)
-val BrandGradientRadial = Brush.radialGradient(
-    colors = listOf(IconPeriwinkle, IconIndigo, IconRoyalBlue)
-)
+// ── Brand roles ─────────────────────────────────────────────────────────────
+val BrandPrimary: Color get() = LiveTheme.accent
+val BrandSecondary: Color get() = IconSky
+val BrandTertiary: Color get() = LiveTheme.secondary
+val BrandAccent: Color get() = LiveTheme.highlight
+val BrandMagenta: Color get() = LiveTheme.secondary
+val BrandOrange = Color(0xFFFF8C3B)   // 4K / quality accent (semantic, theme independent)
+val BrandViolet = Color(0xFF8A6BFF)
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  DARK — "Obsidian Bloom" (default cinematic dark, not pure black)
-// ═════════════════════════════════════════════════════════════════════════════
-val DarkBgBase                = Color(0xFF0A0B14)
-val DarkSurfaceNavy           = Color(0xFF0F1220)
-val DarkSurfaceRaised         = Color(0xFF161A2C)
-val DarkSurfaceRaisedAlt      = Color(0xFF1E2338)
-val DarkSurfaceContainerLowest  = Color(0xFF07080F)
-val DarkSurfaceContainerLow     = Color(0xFF0F1220)
-val DarkSurfaceContainer        = Color(0xFF151931)
-val DarkSurfaceContainerHigh    = Color(0xFF1D2340)
-val DarkSurfaceContainerHighest = Color(0xFF262C4D)
-val DarkOutlineFaint          = Color(0xFF1C2138)
-val DarkOutlineMedium         = Color(0xFF2E3559)
-val DarkOutlineBright         = Color(0xFF4A548C)
-val DarkTextPrimary           = Color(0xFFF1F2FC)
-val DarkTextSecondary         = Color(0xFFBEC3E6)
-val DarkTextTertiary          = Color(0xFF8489B3)
+val BrandBlue: Color get() = BrandPrimary
+val BrandRed = Color(0xFFFF4D5E)      // error / destructive (semantic)
+val BrandHighlight = Color(0xFFFFFFFF)
+val BrandIceBlue: Color get() = lerp(Color.White, LiveTheme.highlight, 0.22f)
+val BrandGold = Color(0xFFFFC64D)
+val BrandGoldLight = Color(0xFFFFF0CE)
+val BrandCyan: Color get() = LiveTheme.secondary
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  AMOLED — "True Black Bloom" (battery-saving pure black canvas)
-// ═════════════════════════════════════════════════════════════════════════════
-val AmoledBgBase              = Color(0xFF000000)
-val AmoledSurfaceNavy         = Color(0xFF000000)
-val AmoledSurfaceRaised       = Color(0xFF0A0A0F)
-val AmoledSurfaceRaisedAlt    = Color(0xFF12121C)
-val AmoledSurfaceContainerLowest  = Color(0xFF000000)
-val AmoledSurfaceContainerLow     = Color(0xFF060609)
-val AmoledSurfaceContainer        = Color(0xFF0C0C14)
-val AmoledSurfaceContainerHigh    = Color(0xFF14141F)
-val AmoledSurfaceContainerHighest = Color(0xFF1C1C2A)
-val AmoledOutlineFaint        = Color(0xFF15151F)
-val AmoledOutlineMedium       = Color(0xFF23233A)
-val AmoledOutlineBright       = Color(0xFF3C3C63)
-val AmoledTextPrimary         = Color(0xFFF5F5FF)
-val AmoledTextSecondary       = Color(0xFFB8B8DA)
-val AmoledTextTertiary        = Color(0xFF7A7AA0)
+// ── Brand gradients (follow the active theme) ───────────────────────────────
+val BrandGradient: Brush
+    get() = Brush.linearGradient(listOf(IconSky, IconIndigo, IconPeriwinkle))
+val BrandGradientSoft: Brush
+    get() = Brush.linearGradient(listOf(IconSky.copy(alpha = 0.85f), IconIndigo.copy(alpha = 0.85f)))
+val BrandGradientRadial: Brush
+    get() = Brush.radialGradient(listOf(IconPeriwinkle, IconIndigo, IconRoyalBlue))
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  LIGHT — "Cloud Bloom" (soft periwinkle-tinted light surfaces)
-// ═════════════════════════════════════════════════════════════════════════════
-val LightBgBase               = Color(0xFFF6F7FE)
-val LightSurfaceNavy          = Color(0xFFFFFFFF)
-val LightSurfaceRaised        = Color(0xFFFFFFFF)
-val LightSurfaceRaisedAlt     = Color(0xFFEDF0FE)
-val LightSurfaceContainerLowest  = Color(0xFFFFFFFF)
-val LightSurfaceContainerLow     = Color(0xFFF3F4FD)
-val LightSurfaceContainer        = Color(0xFFEDEFFC)
-val LightSurfaceContainerHigh    = Color(0xFFE4E7FA)
-val LightSurfaceContainerHighest = Color(0xFFD9DDF6)
-val LightOutlineFaint         = Color(0xFFE3E5F5)
-val LightOutlineMedium        = Color(0xFFCBCFED)
-val LightOutlineBright        = Color(0xFFAAB0E6)
-val LightTextPrimary          = Color(0xFF14162B)
-val LightTextSecondary        = Color(0xFF4A4E76)
-val LightTextTertiary         = Color(0xFF7C80A6)
+// ── Current-mode aliases (live, palette-backed) ─────────────────────────────
+val BgBase: Color get() = LiveTheme.palette.bg
+val SurfaceNavy: Color get() = LiveTheme.palette.surfaceNavy
+val SurfaceRaised: Color get() = LiveTheme.palette.surfaceRaised
+val SurfaceRaisedAlt: Color get() = LiveTheme.palette.surfaceRaisedAlt
+val SurfaceContainerLowest: Color get() = LiveTheme.palette.containerLowest
+val SurfaceContainerLow: Color get() = LiveTheme.palette.containerLow
+val SurfaceContainer: Color get() = LiveTheme.palette.container
+val SurfaceContainerHigh: Color get() = LiveTheme.palette.containerHigh
+val SurfaceContainerHighest: Color get() = LiveTheme.palette.containerHighest
+val OutlineFaint: Color get() = LiveTheme.palette.outlineFaint
+val OutlineMedium: Color get() = LiveTheme.palette.outlineMedium
+val OutlineBright: Color get() = LiveTheme.palette.outlineBright
+val OutlineActive: Color get() = LiveTheme.accent
+val TextPrimary: Color get() = LiveTheme.palette.textPrimary
+val TextSecondary: Color get() = LiveTheme.palette.textSecondary
+val TextTertiary: Color get() = LiveTheme.palette.textTertiary
 
-// ── Current-mode aliases (rebound by MyApplicationTheme via CompositionLocal;
-//    kept as plain top-level vals too so any code still referencing the old
-//    unprefixed names — e.g. BgBase, TextPrimary — compiles against the dark
-//    palette by default). ───────────────────────────────────────────────────
-val BgBase                    = DarkBgBase
-val SurfaceNavy               = DarkSurfaceNavy
-val SurfaceRaised             = DarkSurfaceRaised
-val SurfaceRaisedAlt          = DarkSurfaceRaisedAlt
-val SurfaceContainerLowest    = DarkSurfaceContainerLowest
-val SurfaceContainerLow       = DarkSurfaceContainerLow
-val SurfaceContainer          = DarkSurfaceContainer
-val SurfaceContainerHigh      = DarkSurfaceContainerHigh
-val SurfaceContainerHighest   = DarkSurfaceContainerHighest
-val OutlineFaint              = DarkOutlineFaint
-val OutlineMedium             = DarkOutlineMedium
-val OutlineBright             = DarkOutlineBright
-val OutlineActive             = BrandPrimary
-val TextPrimary               = DarkTextPrimary
-val TextSecondary             = DarkTextSecondary
-val TextTertiary              = DarkTextTertiary
+val BrandBlueDeep: Color get() = LiveTheme.palette.bg
+val BrandBlueShadow: Color get() = LiveTheme.accent.copy(alpha = 0.33f)
 
-val BrandBlueDeep             = DarkBgBase
-val BrandBlueShadow           = Color(0x552B45E8)
+val InverseSurface = Color(0xFF16161A)
+val InverseOnSurface = Color(0xFFF4F4F6)
+val InversePrimary: Color get() = IconSky
 
-val InverseSurface            = LightTextPrimary
-val InverseOnSurface          = LightBgBase
-val InversePrimary            = IconSky
-
-val ShadowAmbient             = Color.Black.copy(alpha = 0.55f)
-val ShadowSpot                = Color.Black.copy(alpha = 0.45f)
+val ShadowAmbient = Color.Black.copy(alpha = 0.55f)
+val ShadowSpot = Color.Black.copy(alpha = 0.45f)
 
 /** Bundles every role Theme.kt needs so each ThemeMode is a single object literal. */
 data class PaletteSet(
@@ -153,35 +116,9 @@ data class PaletteSet(
     val textPrimary: Color,
     val textSecondary: Color,
     val textTertiary: Color,
-    val isDark: Boolean
-)
-
-val DarkPalette = PaletteSet(
-    bg = DarkBgBase, surfaceNavy = DarkSurfaceNavy, surfaceRaised = DarkSurfaceRaised,
-    surfaceRaisedAlt = DarkSurfaceRaisedAlt, containerLowest = DarkSurfaceContainerLowest,
-    containerLow = DarkSurfaceContainerLow, container = DarkSurfaceContainer,
-    containerHigh = DarkSurfaceContainerHigh, containerHighest = DarkSurfaceContainerHighest,
-    outlineFaint = DarkOutlineFaint, outlineMedium = DarkOutlineMedium, outlineBright = DarkOutlineBright,
-    textPrimary = DarkTextPrimary, textSecondary = DarkTextSecondary, textTertiary = DarkTextTertiary,
-    isDark = true
-)
-
-val AmoledPalette = PaletteSet(
-    bg = AmoledBgBase, surfaceNavy = AmoledSurfaceNavy, surfaceRaised = AmoledSurfaceRaised,
-    surfaceRaisedAlt = AmoledSurfaceRaisedAlt, containerLowest = AmoledSurfaceContainerLowest,
-    containerLow = AmoledSurfaceContainerLow, container = AmoledSurfaceContainer,
-    containerHigh = AmoledSurfaceContainerHigh, containerHighest = AmoledSurfaceContainerHighest,
-    outlineFaint = AmoledOutlineFaint, outlineMedium = AmoledOutlineMedium, outlineBright = AmoledOutlineBright,
-    textPrimary = AmoledTextPrimary, textSecondary = AmoledTextSecondary, textTertiary = AmoledTextTertiary,
-    isDark = true
-)
-
-val LightPalette = PaletteSet(
-    bg = LightBgBase, surfaceNavy = LightSurfaceNavy, surfaceRaised = LightSurfaceRaised,
-    surfaceRaisedAlt = LightSurfaceRaisedAlt, containerLowest = LightSurfaceContainerLowest,
-    containerLow = LightSurfaceContainerLow, container = LightSurfaceContainer,
-    containerHigh = LightSurfaceContainerHigh, containerHighest = LightSurfaceContainerHighest,
-    outlineFaint = LightOutlineFaint, outlineMedium = LightOutlineMedium, outlineBright = LightOutlineBright,
-    textPrimary = LightTextPrimary, textSecondary = LightTextSecondary, textTertiary = LightTextTertiary,
-    isDark = false
+    val isDark: Boolean,
+    /** Opaque theme-tinted base for glass panes (cards, nav, chips). */
+    val glassBase: Color = bg,
+    /** Dark theme-tinted base for glass that sits on top of video frames. */
+    val videoGlass: Color = Color(0xFF0A0A0A)
 )

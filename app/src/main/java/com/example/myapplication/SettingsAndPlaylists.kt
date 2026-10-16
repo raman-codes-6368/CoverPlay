@@ -1,5 +1,9 @@
 package com.example.myapplication
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -10,6 +14,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -133,6 +138,7 @@ fun readSettings(context: Context): Map<String, Any> {
         KEY_BACKGROUND_PLAY    to prefs.getBoolean(KEY_BACKGROUND_PLAY, false),
         KEY_RECENTS_KEEP_DAYS  to prefs.getInt(KEY_RECENTS_KEEP_DAYS, 7),
         KEY_DEFAULT_ASPECT     to prefs.getString(KEY_DEFAULT_ASPECT, "Fit")!!,
+        KEY_RECENTS_KEEP_DAYS  to prefs.getInt(KEY_RECENTS_KEEP_DAYS, 7),
         KEY_SKIP_SECONDS       to prefs.getInt(KEY_SKIP_SECONDS, 10),
         KEY_AUTOPLAY_NEXT      to prefs.getBoolean(KEY_AUTOPLAY_NEXT, false),
         KEY_LOOP_VIDEO         to prefs.getBoolean(KEY_LOOP_VIDEO, false),
@@ -147,18 +153,23 @@ fun readSettings(context: Context): Map<String, Any> {
 }
 
 enum class SettingsPage {
-    MAIN, APPEARANCE, PLAYBACK, GESTURES, PRIVACY_HISTORY, ABOUT
+    MAIN, APPEARANCE, PLAYBACK, GESTURES, PRIVACY_HISTORY, ABOUT_DEVELOPER, ABOUT_APP
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onClearHistory: () -> Unit) {
+fun SettingsScreen(onClearHistory: () -> Unit, onReplayAppTour: () -> Unit = {}) {
     val context = LocalContext.current
     val prefs   = remember { context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE) }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val settingsListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val settingsScrolled by remember {
+        derivedStateOf { settingsListState.firstVisibleItemIndex > 0 || settingsListState.firstVisibleItemScrollOffset > 0 }
+    }
     val scope = rememberCoroutineScope()
 
     var currentPage by remember { mutableStateOf(SettingsPage.MAIN) }
+    LaunchedEffect(currentPage) { settingsListState.scrollToItem(0) }
 
     // ── Internal Navigation Back Handler ──────────────────────────────────
     BackHandler(enabled = currentPage != SettingsPage.MAIN) {
@@ -188,12 +199,11 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
     var showAspectSheet by remember { mutableStateOf(false) }
 
     // ── Appearance ────────────────────────────────────────────────────────────
-    val accentOptions   = listOf(BrandPrimary, BrandSecondary, BrandTertiary, BrandAccent, BrandMagenta)
-    var accentColor     by remember { mutableStateOf(Color(prefs.getInt(KEY_ACCENT_COLOR, BrandPrimary.toArgb()))) }
     var showDurationBadge by remember { mutableStateOf(prefs.getBoolean(KEY_SHOW_DURATION_BADGE, true)) }
     var compactList     by remember { mutableStateOf(prefs.getBoolean(KEY_COMPACT_LIST, false)) }
     var useSystemFont   by remember { mutableStateOf(prefs.getBoolean(KEY_USE_SYSTEM_FONT, false)) }
     val currentUiSettings = LocalAppUiSettings.current
+    val accentColor     = currentUiSettings.accent   // always the active theme's accent
     var themeMode       by remember { mutableStateOf(currentUiSettings.themeMode) }
     var showSplash      by remember { mutableStateOf(prefs.getBoolean(KEY_SHOW_SPLASH, true)) }
 
@@ -229,10 +239,11 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
         SettingsPage.PLAYBACK        -> "Playback Engine"
         SettingsPage.GESTURES        -> "Gestures & Controls"
         SettingsPage.PRIVACY_HISTORY -> "Privacy & History"
-        SettingsPage.ABOUT           -> "About CoverPlay"
+        SettingsPage.ABOUT_DEVELOPER -> "About Developer"
+        SettingsPage.ABOUT_APP       -> "About App"
     }
 
-    CinematicBackground {
+    Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
             containerColor = Color.Transparent,
@@ -250,25 +261,30 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                         if (currentPage != SettingsPage.MAIN) currentPage = SettingsPage.MAIN
                     },
                     showBackButton = currentPage != SettingsPage.MAIN,
-                    showExtraActions = false
+                    showExtraActions = false,
+                    isScrolled = settingsScrolled
                 )
             }
         ) { padding ->
             AnimatedContent(
                 targetState = currentPage,
                 transitionSpec = {
-                    if (targetState != SettingsPage.MAIN) {
-                        (slideInHorizontally { it } + fadeIn()).togetherWith(slideOutHorizontally { -it } + fadeOut())
-                    } else {
-                        (slideInHorizontally { -it } + fadeIn()).togetherWith(slideOutHorizontally { it } + fadeOut())
-                    }
+                    val emph = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1f)
+                    val dirv = if (targetState != SettingsPage.MAIN) 1 else -1
+                    ((slideInHorizontally(tween(440, easing = emph)) { dirv * it / 3 } +
+                            fadeIn(tween(320, 60, easing = emph)) +
+                            scaleIn(tween(440, easing = emph), initialScale = 0.96f)) togetherWith
+                            (slideOutHorizontally(tween(320, easing = emph)) { -dirv * it / 5 } +
+                                    fadeOut(tween(180)) +
+                                    scaleOut(tween(320), targetScale = 0.97f)))
                 },
                 label = "SettingsNav",
-                modifier = Modifier.fillMaxSize().padding(padding)
+                modifier = Modifier.fillMaxSize()
             ) { targetPage ->
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 140.dp)
+                    state = settingsListState,
+                    modifier = Modifier.glassSource().fillMaxSize(),
+                    contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 140.dp)
                 ) {
                     when (targetPage) {
                         SettingsPage.MAIN -> {
@@ -280,20 +296,13 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        BrandIconContainer(size = 80.dp, cornerRadius = 24.dp) {
-                                            Icon(
-                                                painter = painterResource(R.drawable.ic_settings_custom),
-                                                contentDescription = null,
-                                                tint = accentColor,
-                                                modifier = Modifier.size(40.dp)
-                                            )
-                                        }
+                                        BrandMark(size = 84.dp)
                                         Spacer(modifier = Modifier.height(16.dp))
                                         Text(
                                             text = "Preferences",
                                             style = MaterialTheme.typography.headlineSmall,
                                             color = LocalAppUiSettings.current.palette.textPrimary,
-                                            fontWeight = FontWeight.Black
+                                            fontWeight = FontWeight.Bold
                                         )
                                         Text(
                                             text = "Configure your premium experience",
@@ -303,222 +312,188 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                                     }
                                 }
                             }
-                            
+
                             item { SettingsSectionHeader("Categories") }
-                            
-                            if (shouldShow("Appearance", "Themes, accent colors, and layout")) {
-                                item {
-                                    SettingsCategoryCard(
-                                        icon = painterResource(R.drawable.ic_palette_custom),
-                                        label = "Appearance",
-                                        sublabel = "Themes, accent colors, and layout",
-                                        onClick = { currentPage = SettingsPage.APPEARANCE }
-                                    )
-                                }
-                            }
-                            if (shouldShow("Playback Engine", "Speed, seeking, and background play")) {
-                                item {
-                                    SettingsCategoryCard(
-                                        icon = painterResource(R.drawable.ic_play_custom),
-                                        label = "Playback Engine",
-                                        sublabel = "Speed, seeking, and background play",
-                                        onClick = { currentPage = SettingsPage.PLAYBACK }
-                                    )
-                                }
-                            }
-                            if (shouldShow("Gestures & Controls", "Swipe controls and pinch to zoom")) {
-                                item {
-                                    SettingsCategoryCard(
-                                        icon = painterResource(R.drawable.ic_volume_custom),
-                                        label = "Gestures & Controls",
-                                        sublabel = "Swipe controls and pinch to zoom",
-                                        onClick = { currentPage = SettingsPage.GESTURES }
-                                    )
-                                }
-                            }
-                            if (shouldShow("Privacy & History", "Watch history and library privacy")) {
-                                item {
-                                    SettingsCategoryCard(
-                                        icon = painterResource(R.drawable.ic_history_custom),
-                                        label = "Privacy & History",
-                                        sublabel = "Watch history and library privacy",
-                                        onClick = { currentPage = SettingsPage.PRIVACY_HISTORY }
-                                    )
-                                }
-                            }
-                            if (shouldShow("About", "App version and developer info")) {
-                                item {
-                                    SettingsCategoryCard(
-                                        icon = painterResource(R.drawable.ic_info_custom),
-                                        label = "About",
-                                        sublabel = "App version and developer info",
-                                        onClick = { currentPage = SettingsPage.ABOUT }
-                                    )
-                                }
+
+                            val catEntries = listOf(
+                                CategoryEntry(R.drawable.ic_palette_custom, "Appearance", "Themes, accents, and layout", "Themes, accent colors, and layout", SettingsPage.APPEARANCE),
+                                CategoryEntry(R.drawable.ic_play_custom, "Playback Engine", "Speed, seeking, background", "Speed, seeking, background", SettingsPage.PLAYBACK),
+                                CategoryEntry(R.drawable.ic_gestures_and_controls, "Gestures & Controls", "Swipe and pinch controls", "Swipe and pinch controls", SettingsPage.GESTURES),
+                                CategoryEntry(R.drawable.ic_history_custom, "Privacy & History", "Watch history & privacy", "Watch history & privacy", SettingsPage.PRIVACY_HISTORY),
+                                CategoryEntry(R.drawable.ic_developer, "About Developer", "Developer card & GitHub link", "Developer card & GitHub link", SettingsPage.ABOUT_DEVELOPER),
+                                CategoryEntry(R.drawable.ic_info_custom, "About App", "Version, feedback & updates", "Version, feedback & updates", SettingsPage.ABOUT_APP)
+                            ).filter { shouldShow(it.label, it.search) }
+                            itemsIndexed(catEntries, key = { _, c -> c.label }) { i, c ->
+                                SettingsCategoryCard(painterResource(c.icon), c.label, c.sub, i) { currentPage = c.page }
                             }
                         }
 
                         SettingsPage.APPEARANCE -> {
+                            item { Spacer(modifier = Modifier.height(16.dp)) }
                             if (shouldShow("Visual Style") || shouldShow("Accent Color") || shouldShow("Appearance Mode")) {
-                                item { SettingsSectionHeader("Visual Style") }
+                                settingsCard("Visual Style") {
 
-                                if (shouldShow("Accent Color", "Personalize UI highlights")) {
-                                    item {
-                                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                BrandIconContainer(size = 44.dp, cornerRadius = 14.dp) {
-                                                    Icon(painterResource(R.drawable.ic_palette_custom), null, tint = accentColor, modifier = Modifier.size(22.dp))
+                                    if (shouldShow("Show Splash Screen")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = Icons.Rounded.RocketLaunch,
+                                                label = "Show Splash Screen",
+                                                sublabel = "Brand startup animation",
+                                                checked = showSplash,
+                                                onCheckedChange = {
+                                                    showSplash = it
+                                                    save { putBoolean(KEY_SHOW_SPLASH, it) }
                                                 }
-                                                Spacer(modifier = Modifier.width(18.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text("Accent Color", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
-                                                    Text("Personalize UI highlights", style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textSecondary)
+                                            )
+                                        }
+                                    }
+
+                                    if (shouldShow("Expressive Themes", "5 Full-Fledged Themes with custom aesthetics")) {
+                                        item {
+                                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    BrandIconContainer(size = 48.dp, cornerRadius = 14.dp) {
+                                                        Icon(painterResource(R.drawable.ic_palette_custom), null, tint = accentColor, modifier = Modifier.size(24.dp))
+                                                    }
+                                                    Spacer(modifier = Modifier.width(18.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text("Expressive Themes", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
+                                                        Text(currentUiSettings.appTheme.label + " · " + currentUiSettings.appTheme.tagline, style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textSecondary)
+                                                    }
                                                 }
-                                            }
-                                            Spacer(modifier = Modifier.height(18.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                accentOptions.forEach { color ->
-                                                    BloomColorSwatch(
-                                                        color = color,
-                                                        selected = accentColor == color,
-                                                        onClick = {
-                                                            accentColor = color
-                                                            save { putInt(KEY_ACCENT_COLOR, color.toArgb()) }
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                    AppTheme.entries.forEach { appTheme ->
+                                                        val selected = currentUiSettings.appTheme == appTheme
+                                                        val ringScale by animateFloatAsState(if (selected) 1.15f else 0.88f, spring(0.6f, 450f), label = "settingsTheme")
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(40.dp)
+                                                                .graphicsLayer { scaleX = ringScale; scaleY = ringScale }
+                                                                .clip(CircleShape)
+                                                                .background(appTheme.swatchBrush())
+                                                                .border(if (selected) 2.dp else 1.dp, if (selected) Color.White else Color.White.copy(alpha = 0.2f), CircleShape)
+                                                                .aliveClickable {
+                                                                    setAppTheme(context, appTheme)
+                                                                },
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
                                                         }
-                                                    )
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
 
-                                if (shouldShow("Show Splash Screen")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = Icons.Rounded.RocketLaunch,
-                                            label = "Show Splash Screen",
-                                            sublabel = "Play brand animation on startup",
-                                            checked = showSplash,
-                                            onCheckedChange = {
-                                                showSplash = it
-                                                save { putBoolean(KEY_SHOW_SPLASH, it) }
+                                    if (shouldShow("Appearance Mode", "Light, Dark, or true-black AMOLED")) {
+                                        item {
+                                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 10.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    BrandIconContainer(size = 48.dp, cornerRadius = 14.dp) {
+                                                        Icon(painterResource(R.drawable.ic_moon_custom), null, tint = accentColor, modifier = Modifier.size(24.dp))
+                                                    }
+                                                    Spacer(modifier = Modifier.width(18.dp))
+                                                    Column(modifier = Modifier.weight(1f)) {
+                                                        Text("Appearance Mode", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
+                                                        Text("Color theme", style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.height(12.dp))
+                                                ThemeModeSelector(
+                                                    selected = themeMode,
+                                                    onSelect = {
+                                                        themeMode = it
+                                                        setThemeMode(context, it)
+                                                    }
+                                                )
                                             }
-                                        )
-                                    }
-                                }
-
-                                if (shouldShow("Appearance Mode", "Light, Dark, or true-black AMOLED")) {
-                                    item {
-                                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                BrandIconContainer(size = 44.dp, cornerRadius = 14.dp) {
-                                                    Icon(painterResource(R.drawable.ic_moon_custom), null, tint = accentColor, modifier = Modifier.size(22.dp))
-                                                }
-                                                Spacer(modifier = Modifier.width(18.dp))
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text("Appearance Mode", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
-                                                    Text("Light, Dark, or true-black AMOLED", style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textSecondary)
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(14.dp))
-                                            ThemeModeSelector(
-                                                selected = themeMode,
-                                                onSelect = {
-                                                    themeMode = it
-                                                    setThemeMode(context, it)
-                                                }
-                                            )
                                         }
                                     }
                                 }
                             }
 
+                            if (shouldShow("App Icon", "Launcher icon follows the theme or pick one manually")) {
+                                item { SettingsSectionHeader("App Icon") }
+                                item { AppIconSettingsCard(currentUiSettings.appTheme) }
+                            }
+
                             if (shouldShow("UI Elements") || shouldShow("Duration Badges") || shouldShow("Compact Mode")) {
-                                item { SettingsSectionHeader("UI Elements") }
-                                if (shouldShow("Duration Badges", "Show runtime on thumbnails")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_stopwatch_custom),
-                                            label = "Duration Badges",
-                                            sublabel = "Show runtime on thumbnails",
-                                            checked = showDurationBadge,
-                                            onCheckedChange = {
-                                                showDurationBadge = it
-                                                save { putBoolean(KEY_SHOW_DURATION_BADGE, it) }
-                                            }
-                                        )
+                                settingsCard("UI Elements") {
+                                    if (shouldShow("Duration Badges", "Show runtime on thumbnails")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_stopwatch_custom),
+                                                label = "Duration Badges",
+                                                sublabel = "Show runtime on thumbnails",
+                                                checked = showDurationBadge,
+                                                onCheckedChange = {
+                                                    showDurationBadge = it
+                                                    save { putBoolean(KEY_SHOW_DURATION_BADGE, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Compact Mode", "See more content at once")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_list_custom),
-                                            label = "Compact Mode",
-                                            sublabel = "See more content at once",
-                                            checked = compactList,
-                                            onCheckedChange = {
-                                                compactList = it
-                                                save { putBoolean(KEY_COMPACT_LIST, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Compact Mode", "See more content at once")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_list_custom),
+                                                label = "Compact Mode",
+                                                sublabel = "See more content at once",
+                                                checked = compactList,
+                                                onCheckedChange = {
+                                                    compactList = it
+                                                    save { putBoolean(KEY_COMPACT_LIST, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             if (shouldShow("Typography") || shouldShow("Text Scaling") || shouldShow("System Font")) {
-                                item { SettingsSectionHeader("Typography") }
-                                if (shouldShow("System Font", "Apply phone's default font")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_typography_custom),
-                                            label = "Use System Font",
-                                            sublabel = "Apply phone's default font",
-                                            checked = useSystemFont,
-                                            onCheckedChange = {
-                                                useSystemFont = it
-                                                save { putBoolean(KEY_USE_SYSTEM_FONT, it) }
-                                            }
-                                        )
-                                    }
-                                }
-                                if (shouldShow("Text Scaling")) {
-                                    item {
-                                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                BrandIconContainer(size = 44.dp, cornerRadius = 14.dp) {
-                                                    Text("Aa", style = MaterialTheme.typography.titleMedium, color = accentColor, fontWeight = FontWeight.Black)
+                                settingsCard("Typography") {
+                                    if (shouldShow("System Font", "Apply phone's default font")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_typography_custom),
+                                                label = "Use System Font",
+                                                sublabel = "Apply phone's default font",
+                                                checked = useSystemFont,
+                                                onCheckedChange = {
+                                                    useSystemFont = it
+                                                    save { putBoolean(KEY_USE_SYSTEM_FONT, it) }
                                                 }
-                                                Spacer(modifier = Modifier.width(18.dp))
-                                                Text("Text Scaling", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                                                Surface(
-                                                    color = accentColor.copy(alpha = 0.12f),
-                                                    shape = RoundedCornerShape(10.dp),
-                                                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f))
-                                                ) {
-                                                    Text(
-                                                        "${(fontScale * 100).toInt()}%",
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                        color = accentColor,
-                                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                                        fontWeight = FontWeight.Black
-                                                    )
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Slider(
-                                                value = fontScale,
-                                                onValueChange = { fontScale = it },
-                                                onValueChangeFinished = { save { putFloat(KEY_FONT_SCALE, fontScale) } },
-                                                valueRange = 0.85f..1.15f,
-                                                colors = SliderDefaults.colors(
-                                                    thumbColor = accentColor,
-                                                    activeTrackColor = accentColor,
-                                                    inactiveTrackColor = LocalAppUiSettings.current.palette.outlineMedium
-                                                )
                                             )
+                                        }
+                                    }
+                                    if (shouldShow("Text Scaling")) {
+                                        item {
+                                            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp)) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    BrandIconContainer(size = 44.dp, cornerRadius = 14.dp) {
+                                                        Icon(painterResource(R.drawable.ic_text_scaling), null, tint = accentColor, modifier = Modifier.size(22.dp))
+                                                    }
+                                                    Spacer(modifier = Modifier.width(18.dp))
+                                                    Text("Text Scaling", style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
+                                                    Box(modifier = Modifier.glassBadge(accentColor.copy(alpha = 0.16f), accentColor, RoundedCornerShape(12.dp))) {
+                                                        Text(
+                                                            "${(fontScale * 100).toInt()}%",
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                            color = accentColor,
+                                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                PremiumSlider(
+                                                    value = fontScale,
+                                                    onValueChange = { fontScale = it },
+                                                    onValueChangeFinished = { save { putFloat(KEY_FONT_SCALE, fontScale) } },
+                                                    valueRange = 0.85f..1.15f
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -527,124 +502,127 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
 
                         SettingsPage.PLAYBACK -> {
                             if (shouldShow("Core Playback") || shouldShow("Default Speed") || shouldShow("Seek Interval") || shouldShow("Resume Progress") || shouldShow("Autoplay Next") || shouldShow("Loop Video")) {
-                                item { SettingsSectionHeader("Core Playback") }
-                                if (shouldShow("Default Speed")) {
-                                    item {
-                                        SettingsClickRow(
-                                            icon = painterResource(R.drawable.ic_speed_custom),
-                                            label = "Default Speed",
-                                            value = formatSpeed(defaultSpeed),
-                                            onClick = { showSpeedSheet = true }
-                                        )
+                                settingsCard("Core Playback") {
+                                    if (shouldShow("Default Speed")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_speed_custom),
+                                                label = "Default Speed",
+                                                value = formatSpeed(defaultSpeed),
+                                                onClick = { showSpeedSheet = true }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Seek Interval", "${skipSeconds}s")) {
-                                    item {
-                                        SettingsClickRow(
-                                            icon = painterResource(R.drawable.ic_forward_custom),
-                                            label = "Seek Interval",
-                                            value = "${skipSeconds}s",
-                                            onClick = { showSkipSheet = true }
-                                        )
+                                    if (shouldShow("Seek Interval", "${skipSeconds}s")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_forward_custom),
+                                                label = "Seek Interval",
+                                                value = "${skipSeconds}s",
+                                                onClick = { showSkipSheet = true }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Resume Progress")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_play_custom),
-                                            label = "Resume Progress",
-                                            checked = resumePlayback,
-                                            onCheckedChange = {
-                                                resumePlayback = it
-                                                save { putBoolean(KEY_RESUME_PLAYBACK, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Resume Progress")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_play_custom),
+                                                label = "Resume Progress",
+                                                checked = resumePlayback,
+                                                onCheckedChange = {
+                                                    resumePlayback = it
+                                                    save { putBoolean(KEY_RESUME_PLAYBACK, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Autoplay Next")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_next_custom),
-                                            label = "Autoplay Next",
-                                            checked = autoplayNext,
-                                            onCheckedChange = {
-                                                autoplayNext = it
-                                                save { putBoolean(KEY_AUTOPLAY_NEXT, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Autoplay Next")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_next_custom),
+                                                label = "Autoplay Next",
+                                                checked = autoplayNext,
+                                                onCheckedChange = {
+                                                    autoplayNext = it
+                                                    save { putBoolean(KEY_AUTOPLAY_NEXT, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Loop Video")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_repeat_custom),
-                                            label = "Loop Video",
-                                            checked = loopVideo,
-                                            onCheckedChange = {
-                                                loopVideo = it
-                                                save { putBoolean(KEY_LOOP_VIDEO, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Loop Video")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_repeat_custom),
+                                                label = "Loop Video",
+                                                checked = loopVideo,
+                                                onCheckedChange = {
+                                                    loopVideo = it
+                                                    save { putBoolean(KEY_LOOP_VIDEO, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Lock Screen Timer", "Show subtle timer when controls locked")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_stopwatch_custom),
-                                            label = "Lock Screen Timer",
-                                            sublabel = "Show subtle timer when controls locked",
-                                            checked = subtleLockTimer,
-                                            onCheckedChange = {
-                                                subtleLockTimer = it
-                                                save { putBoolean(KEY_SUBTLE_LOCK_TIMER, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Lock Screen Timer", "Show subtle timer when controls locked")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_stopwatch_custom),
+                                                label = "Lock Screen Timer",
+                                                sublabel = "Show subtle timer when controls locked",
+                                                checked = subtleLockTimer,
+                                                onCheckedChange = {
+                                                    subtleLockTimer = it
+                                                    save { putBoolean(KEY_SUBTLE_LOCK_TIMER, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             if (shouldShow("Engine Settings") || shouldShow("Hardware Decoding") || shouldShow("Background Play")) {
-                                item { SettingsSectionHeader("Engine Settings") }
-                                if (shouldShow("Hardware Decoding", "Smoother playback using GPU")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_code_circle_custom),
-                                            label = "Hardware Decoding",
-                                            sublabel = "Smoother playback using GPU",
-                                            checked = hardwareDecode,
-                                            onCheckedChange = {
-                                                hardwareDecode = it
-                                                save { putBoolean(KEY_HARDWARE_DECODE, it) }
-                                            }
-                                        )
+                                settingsCard("Engine Settings") {
+                                    if (shouldShow("Hardware Decoding", "Smoother playback using GPU")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_code_circle_custom),
+                                                label = "Hardware Decoding",
+                                                sublabel = "Smoother playback using GPU",
+                                                checked = hardwareDecode,
+                                                onCheckedChange = {
+                                                    hardwareDecode = it
+                                                    save { putBoolean(KEY_HARDWARE_DECODE, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Background Play", "Continue audio when screen off")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_pip_custom),
-                                            label = "Background Play",
-                                            sublabel = "Continue audio when screen off",
-                                            checked = backgroundPlay,
-                                            onCheckedChange = {
-                                                backgroundPlay = it
-                                                save { putBoolean(KEY_BACKGROUND_PLAY, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Background Play", "Continue audio when screen off")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_pip_custom),
+                                                label = "Background Play",
+                                                sublabel = "Continue audio when screen off",
+                                                checked = backgroundPlay,
+                                                onCheckedChange = {
+                                                    backgroundPlay = it
+                                                    save { putBoolean(KEY_BACKGROUND_PLAY, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             if (shouldShow("Display") || shouldShow("Default Aspect Ratio")) {
-                                item { SettingsSectionHeader("Display") }
-                                if (shouldShow("Default Aspect Ratio", defaultAspect)) {
-                                    item {
-                                        SettingsClickRow(
-                                            icon = painterResource(R.drawable.ic_orientation_custom),
-                                            label = "Default Aspect Ratio",
-                                            value = defaultAspect,
-                                            onClick = { showAspectSheet = true }
-                                        )
+                                settingsCard("Display") {
+                                    if (shouldShow("Default Aspect Ratio", defaultAspect)) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_orientation_custom),
+                                                label = "Default Aspect Ratio",
+                                                value = defaultAspect,
+                                                onClick = { showAspectSheet = true }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -652,51 +630,53 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
 
                         SettingsPage.GESTURES -> {
                             if (shouldShow("Swipe Gestures") || shouldShow("Brightness Swipe") || shouldShow("Volume Swipe")) {
-                                item { SettingsSectionHeader("Swipe Gestures") }
-                                if (shouldShow("Brightness Swipe")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_brightness_custom),
-                                            label = "Brightness Swipe",
-                                            sublabel = "Swipe on left side of screen",
-                                            checked = brightnessGesture,
-                                            onCheckedChange = {
-                                                brightnessGesture = it
-                                                save { putBoolean(KEY_BRIGHTNESS_GESTURE, it) }
-                                            }
-                                        )
+                                settingsCard("Swipe Gestures") {
+                                    if (shouldShow("Brightness Swipe")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_brightness_custom),
+                                                label = "Brightness Swipe",
+                                                sublabel = "Swipe on left side of screen",
+                                                checked = brightnessGesture,
+                                                onCheckedChange = {
+                                                    brightnessGesture = it
+                                                    save { putBoolean(KEY_BRIGHTNESS_GESTURE, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Volume Swipe")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_volume_custom),
-                                            label = "Volume Swipe",
-                                            sublabel = "Swipe on right side of screen",
-                                            checked = volumeGesture,
-                                            onCheckedChange = {
-                                                volumeGesture = it
-                                                save { putBoolean(KEY_VOLUME_GESTURE, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Volume Swipe")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_volume_custom),
+                                                label = "Volume Swipe",
+                                                sublabel = "Swipe on right side of screen",
+                                                checked = volumeGesture,
+                                                onCheckedChange = {
+                                                    volumeGesture = it
+                                                    save { putBoolean(KEY_VOLUME_GESTURE, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             if (shouldShow("Touch") || shouldShow("Pinch to Zoom")) {
-                                item { SettingsSectionHeader("Touch") }
-                                if (shouldShow("Pinch to Zoom", "Freely zoom video with two fingers")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_maximize),
-                                            label = "Pinch to Zoom",
-                                            sublabel = "Freely zoom video with two fingers",
-                                            checked = pinchToZoom,
-                                            onCheckedChange = {
-                                                pinchToZoom = it
-                                                save { putBoolean(KEY_PINCH_TO_ZOOM, it) }
-                                            }
-                                        )
+                                settingsCard("Touch") {
+                                    if (shouldShow("Pinch to Zoom", "Freely zoom video with two fingers")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_maximize),
+                                                label = "Pinch to Zoom",
+                                                sublabel = "Freely zoom video with two fingers",
+                                                checked = pinchToZoom,
+                                                onCheckedChange = {
+                                                    pinchToZoom = it
+                                                    save { putBoolean(KEY_PINCH_TO_ZOOM, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -704,66 +684,68 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
 
                         SettingsPage.PRIVACY_HISTORY -> {
                             if (shouldShow("Library Privacy") || shouldShow("Hide Thumbnails")) {
-                                item { SettingsSectionHeader("Library Privacy") }
-                                if (shouldShow("Hide Thumbnails", "Privacy-focused browsing")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_description_custom),
-                                            label = "Hide Thumbnails",
-                                            sublabel = "Privacy-focused browsing",
-                                            checked = hideThumbnails,
-                                            onCheckedChange = {
-                                                hideThumbnails = it
-                                                save { putBoolean(KEY_HIDE_THUMBNAILS, it) }
-                                            }
-                                        )
+                                settingsCard("Library Privacy") {
+                                    if (shouldShow("Hide Thumbnails", "Privacy-focused browsing")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_thumbnail),
+                                                label = "Hide Thumbnails",
+                                                sublabel = "Privacy-focused browsing",
+                                                checked = hideThumbnails,
+                                                onCheckedChange = {
+                                                    hideThumbnails = it
+                                                    save { putBoolean(KEY_HIDE_THUMBNAILS, it) }
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
 
                             if (shouldShow("History & Data") || shouldShow("Retention Period") || shouldShow("Confirm Deletion") || shouldShow("Clear All History")) {
-                                item { SettingsSectionHeader("History & Data") }
-                                if (shouldShow("Retention Period", "$keepDays Days")) {
-                                    item {
-                                        SettingsClickRow(
-                                            icon = painterResource(R.drawable.ic_history_custom),
-                                            label = "Retention Period",
-                                            value = "$keepDays Days",
-                                            onClick = { showKeepSheet = true }
-                                        )
+                                settingsCard("History & Data") {
+                                    if (shouldShow("Retention Period", "$keepDays Days")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_history_custom),
+                                                label = "Retention Period",
+                                                value = "$keepDays Days",
+                                                onClick = { showKeepSheet = true }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Confirm Deletion")) {
-                                    item {
-                                        SettingsToggleRow(
-                                            icon = painterResource(R.drawable.ic_trash_custom),
-                                            label = "Confirm Deletion",
-                                            sublabel = "Show confirmation before deleting files",
-                                            checked = confirmDelete,
-                                            onCheckedChange = {
-                                                confirmDelete = it
-                                                save { putBoolean(KEY_CONFIRM_DELETE, it) }
-                                            }
-                                        )
+                                    if (shouldShow("Confirm Deletion")) {
+                                        item {
+                                            SettingsToggleRow(
+                                                icon = painterResource(R.drawable.ic_confirm),
+                                                label = "Confirm Deletion",
+                                                sublabel = "Show confirmation before deleting files",
+                                                checked = confirmDelete,
+                                                onCheckedChange = {
+                                                    confirmDelete = it
+                                                    save { putBoolean(KEY_CONFIRM_DELETE, it) }
+                                                }
+                                            )
+                                        }
                                     }
-                                }
-                                if (shouldShow("Clear All History")) {
-                                    item {
-                                        SettingsClickRow(
-                                            icon = painterResource(R.drawable.ic_trash_custom),
-                                            label = "Clear All History",
-                                            value = "",
-                                            tint = MaterialTheme.colorScheme.error,
-                                            onClick = { showClearDialog = true }
-                                        )
+                                    if (shouldShow("Clear All History")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_trash_custom),
+                                                label = "Clear All History",
+                                                value = "",
+                                                tint = MaterialTheme.colorScheme.error,
+                                                onClick = { showClearDialog = true }
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        SettingsPage.ABOUT -> {
-                            if (shouldShow("Developer")) {
-                                item { SettingsSectionHeader("Developer") }
+                        SettingsPage.ABOUT_DEVELOPER -> {
+                            if (shouldShow("Developer Profile")) {
+                                item { SettingsSectionHeader("Developer Profile") }
                                 item {
                                     DeveloperPremiumCard(context = context, onViewGithub = {
                                         val intent = Intent(Intent.ACTION_VIEW, "https://github.com/raman-codes-6368".toUri())
@@ -771,28 +753,92 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                                     })
                                 }
                             }
-                            if (shouldShow("App Information") || shouldShow("Version") || shouldShow("Build Variant")) {
-                                item { SettingsSectionHeader("App Information") }
-                                if (shouldShow("Version", "2.0.0")) {
-                                    item {
-                                        SettingsInfoRow(
-                                            icon = painterResource(R.drawable.ic_info_custom),
-                                            label = "Version",
-                                            value = "2.0.0"
-                                        )
+                        }
+
+                        SettingsPage.ABOUT_APP -> {
+                            if (shouldShow("App Information") || shouldShow("Version") || shouldShow("For Feedback") || shouldShow("Check for Updates")) {
+                                settingsCard("App Information") {
+                                    if (shouldShow("Version", "2.4.0")) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier.easterEggTaps(7) {
+                                                    showSecret(context, "🛠️ Developer mode unlocked… CoverPlay v2.4.0")
+                                                }
+                                            ) {
+                                                SettingsInfoRow(
+                                                    icon = painterResource(R.drawable.ic_info_custom),
+                                                    label = "Version",
+                                                    value = "2.4.0"
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (shouldShow("For Feedback", "880ramansingh@gmail.com")) {
+                                        item {
+                                            SettingsFeedbackRow(
+                                                icon = painterResource(R.drawable.ic_feedback),
+                                                label = "For Feedback",
+                                                email = "880ramansingh@gmail.com",
+                                                onClick = {
+                                                    runCatching {
+                                                        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:880ramansingh@gmail.com"))
+                                                        intent.putExtra(Intent.EXTRA_SUBJECT, "CoverPlay App Feedback")
+                                                        context.startActivity(intent)
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                    if (shouldShow("Check for Updates")) {
+                                        item {
+                                            SettingsUpdateRow(
+                                                icon = painterResource(R.drawable.ic_updates),
+                                                label = "Check for Updates",
+                                                status = "v2.4.0 (Latest)",
+                                                onClick = {
+                                                    android.widget.Toast.makeText(context, Quips.update(), android.widget.Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
                                     }
                                 }
-                                if (shouldShow("For Feedback", "880ramansingh@gmail.com")) {
-                                    item {
-                                        SettingsInfoRow(
-                                            icon = painterResource(R.drawable.ic_feedback),
-                                            label = "For Feedback",
-                                            value = "880ramansingh@gmail.com"
-                                        )
+                            }
+                            if (shouldShow("Tutorial") || shouldShow("Replay app tour") || shouldShow("Replay player tour")) {
+                                settingsCard("Tutorial") {
+                                    if (shouldShow("Replay app tour", "Walk through CoverPlay again")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_info_custom),
+                                                label = "Replay app tour",
+                                                value = "",
+                                                onClick = { onReplayAppTour() }
+                                            )
+                                        }
+                                    }
+                                    if (shouldShow("Replay player tour", "Gestures and controls guide")) {
+                                        item {
+                                            SettingsClickRow(
+                                                icon = painterResource(R.drawable.ic_play_custom),
+                                                label = "Replay player tour",
+                                                value = "",
+                                                onClick = {
+                                                    TutorialPrefs.resetPlayer(context)
+                                                    android.widget.Toast.makeText(context, "Open any video to replay the player tour. Lights, camera, fingers!", android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                    }
+                    // one line of personality at the foot of every settings page
+                    item {
+                        QuipLine(
+                            Quips.settingsPage(targetPage),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp, vertical = 24.dp),
+                            align = TextAlign.Center
+                        )
                     }
                 }
             }
@@ -805,14 +851,13 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 BrandTitleText("Playback Speed")
                 Spacer(modifier = Modifier.height(32.dp))
-                Text(text = formatSpeed(defaultSpeed), style = MaterialTheme.typography.displayMedium, color = accentColor, fontWeight = FontWeight.Black)
+                Text(text = formatSpeed(defaultSpeed), style = MaterialTheme.typography.displayMedium, color = accentColor, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(40.dp))
-                Slider(
+                PremiumSlider(
                     value = defaultSpeed,
                     onValueChange = { defaultSpeed = (it * 4f).roundToInt() / 4f },
                     onValueChangeFinished = { save { putFloat(KEY_DEFAULT_SPEED, defaultSpeed) } },
-                    valueRange = 0.25f..4.0f,
-                    colors = SliderDefaults.colors(thumbColor = accentColor, activeTrackColor = accentColor)
+                    valueRange = 0.25f..4.0f
                 )
                 Spacer(modifier = Modifier.height(32.dp))
                 PremiumButton(text = "Reset to 1.0x", onClick = { defaultSpeed = 1.0f; save { putFloat(KEY_DEFAULT_SPEED, 1.0f) }; showSpeedSheet = false }, modifier = Modifier.fillMaxWidth())
@@ -838,7 +883,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                         }
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(option, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Black)
+                            Text(option, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
                             if (selected) Icon(painterResource(R.drawable.ic_check_custom), null, tint = accentColor)
                         }
                     }
@@ -865,7 +910,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                         }
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("$days Days", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Black)
+                            Text("$days Days", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
                             if (selected) Icon(painterResource(R.drawable.ic_check_custom), null, tint = accentColor)
                         }
                     }
@@ -892,7 +937,7 @@ fun SettingsScreen(onClearHistory: () -> Unit) {
                         }
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("$seconds Seconds", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Black)
+                            Text("$seconds Seconds", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = if(selected) accentColor else LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
                             if (selected) Icon(painterResource(R.drawable.ic_check_custom), null, tint = accentColor)
                         }
                     }
@@ -923,52 +968,268 @@ private fun SettingsCategoryCard(
     icon: Painter,
     label: String,
     sublabel: String,
+    index: Int,
     onClick: () -> Unit
 ) {
-    val accent = LocalAppUiSettings.current.accent
-    val textPrimary = LocalAppUiSettings.current.palette.textPrimary
-    val textTertiary = LocalAppUiSettings.current.palette.textTertiary
-    
+    val ui = LocalAppUiSettings.current
+    val accent = ui.accent
+    val haptic = rememberHaptic()
+    val tileShape = RoundedCornerShape(17.dp)
+
     PremiumCardSurface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 6.dp),
-        onClick = onClick,
-        cornerRadius = 24.dp
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .staggerIn(index),
+        onClick = { haptic(); onClick() },
+        cornerRadius = 26.dp
     ) {
         Row(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            BrandIconContainer(size = 52.dp, cornerRadius = 16.dp) {
-                Icon(
-                    painter = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(26.dp)
-                )
+            Box(
+                Modifier
+                    .size(52.dp)
+                    .clip(tileShape)
+                    .background(Brush.linearGradient(listOf(accent.copy(alpha = 0.32f), accent.copy(alpha = 0.10f))))
+                    .border(1.dp, accent.copy(alpha = 0.30f), tileShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = accent, modifier = Modifier.size(26.dp))
             }
-            Spacer(modifier = Modifier.width(20.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.titleMedium, color = ui.palette.textPrimary, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(2.dp))
+                Text(sublabel, style = MaterialTheme.typography.bodySmall, color = ui.palette.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Box(
+                Modifier.size(32.dp).clip(CircleShape).background(accent.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(painterResource(R.drawable.ic_chevron_right_custom), null, tint = accent, modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
+/** Collects the rows of one settings group so they can be drawn together inside a single glass card. */
+private class CardRows {
+    val rows = mutableListOf<@Composable () -> Unit>()
+    fun item(content: @Composable () -> Unit) { rows += content }
+}
+
+/** A titled group of settings rows shown as ONE glass card with hairline dividers. */
+private fun LazyListScope.settingsCard(title: String, content: CardRows.() -> Unit) {
+    val c = CardRows().apply(content)
+    if (c.rows.isEmpty()) return
+    item { SettingsSectionHeader(title) }
+    item {
+        SettingsGlassGroup {
+            c.rows.forEachIndexed { i, row ->
+                row()
+                if (i < c.rows.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 84.dp, end = 18.dp),
+                        color = LocalAppUiSettings.current.palette.outlineFaint
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Launcher-icon tile: a mini app icon on a dark squircle, so it reads as an icon and not as a colour swatch. */
+@Composable
+private fun AppIconTile(theme: AppTheme, size: androidx.compose.ui.unit.Dp, selected: Boolean, onClick: (() -> Unit)? = null) {
+    val sc by animateFloatAsState(if (selected) 1f else 0.92f, spring(0.6f, 420f), label = "iconTile")
+    val ring by animateFloatAsState(if (selected) 1f else 0f, tween(260), label = "iconRing")
+    val shape = RoundedCornerShape(size * 0.30f)
+    Box(
+        Modifier
+            .size(size)
+            .graphicsLayer { scaleX = sc; scaleY = sc }
+            .shadow(
+                if (selected) 14.dp else 0.dp, shape,
+                ambientColor = theme.primaryAccent.copy(alpha = 0.6f),
+                spotColor = theme.primaryAccent.copy(alpha = 0.6f)
+            )
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFF0D0D14), theme.primaryAccent.copy(alpha = 0.38f))))
+            .border(
+                BorderStroke(
+                    2.dp,
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.12f + 0.78f * ring),
+                            theme.primaryAccent.copy(alpha = 0.20f + 0.70f * ring)
+                        )
+                    )
+                ),
+                shape
+            )
+            .then(
+                if (onClick != null) Modifier.clickable(
+                    interactionSource = remember { MutableInteractionSource() }, indication = null
+                ) { onClick() } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(BrandAssets.logoFor(theme)),
+            contentDescription = theme.label,
+            modifier = Modifier.size(size * 0.68f),
+            contentScale = ContentScale.Fit
+        )
+        if (selected) {
+            Box(
+                Modifier.align(Alignment.TopEnd).padding(4.dp).size(18.dp).clip(CircleShape).background(theme.primaryAccent),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(12.dp)) }
+        }
+    }
+}
+
+/** Launcher icon: live preview, "match theme" switch, and a manual picker that looks like app icons. */
+@Composable
+private fun AppIconSettingsCard(currentTheme: AppTheme) {
+    val context = LocalContext.current
+    val ui = LocalAppUiSettings.current
+    val accent = ui.accent
+    val haptic = rememberHaptic()
+    var sync by remember { mutableStateOf(AppIconManager.isSyncEnabled(context)) }
+    var picked by remember { mutableStateOf(AppIconManager.getActiveIconTheme(context)) }
+    var refresh by remember { mutableIntStateOf(0) }
+
+    val shown = if (sync) currentTheme else picked
+    val waiting = remember(refresh, shown) {
+        AppIconManager.getPendingIconTheme(context) != null && AppIconManager.getActiveIconTheme(context) != shown
+    }
+
+    SettingsGlassGroup {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppIconTile(shown, 64.dp, selected = false)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = label,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textPrimary,
-                    fontWeight = FontWeight.Black
+                    "LAUNCHER ICON",
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp),
+                    color = accent
                 )
+                AnimatedContent(
+                    targetState = shown.label,
+                    transitionSpec = { (fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 3 }) togetherWith fadeOut(tween(140)) },
+                    label = "iconName"
+                ) { name ->
+                    Text(name, style = MaterialTheme.typography.titleMedium, color = ui.palette.textPrimary, fontWeight = FontWeight.Bold)
+                }
                 Text(
-                    text = sublabel,
+                    when {
+                        waiting -> "Applies when you leave the app"
+                        sync -> "Following your theme"
+                        else -> "Chosen manually"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = textTertiary
+                    color = if (waiting) accent else ui.palette.textTertiary
                 )
             }
-            Icon(
-                painter = painterResource(R.drawable.ic_chevron_right_custom),
-                contentDescription = null,
-                tint = textTertiary.copy(alpha = 0.5f),
-                modifier = Modifier.size(22.dp)
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = ui.palette.outlineFaint)
+        SettingsToggleRow(
+            icon = Icons.Rounded.AutoAwesome,
+            label = "Match Theme",
+            sublabel = "Icon follows your theme automatically",
+            checked = sync,
+            onCheckedChange = {
+                sync = it
+                AppIconManager.setSyncEnabled(context, it, currentTheme)
+                refresh++
+            }
+        )
+        HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = ui.palette.outlineFaint)
+        Column(Modifier.padding(top = 16.dp, bottom = 14.dp)) {
+            Text(
+                "CHOOSE MANUALLY",
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp),
+                color = ui.palette.textTertiary,
+                modifier = Modifier.padding(horizontal = 18.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AppTheme.entries.forEach { t ->
+                    val isSel = shown == t
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.graphicsLayer { alpha = if (sync && !isSel) 0.5f else 1f }
+                    ) {
+                        AppIconTile(t, 66.dp, isSel) {
+                            haptic()
+                            sync = false
+                            picked = t
+                            AppIconManager.pickIconManually(context, t)
+                            refresh++
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            t.label,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium),
+                            color = if (isSel) accent else ui.palette.textSecondary,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Android refreshes the launcher icon when you leave the app, so it can change without closing it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = ui.palette.textTertiary,
+                modifier = Modifier.padding(horizontal = 18.dp)
             )
         }
+    }
+}
+
+private data class CategoryEntry(val icon: Int, val label: String, val sub: String, val search: String, val page: SettingsPage)
+
+/** One frosted glass container holding several rows (Apple-style grouped list). */
+@Composable
+private fun SettingsGlassGroup(content: @Composable ColumnScope.() -> Unit) {
+    GlassSurface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(30.dp),
+        strong = false,
+        elevation = 12.dp
+    ) { Column(content = content) }
+}
+
+@Composable
+private fun SettingsCategoryRow(icon: Painter, label: String, sublabel: String, onClick: () -> Unit) {
+    val ui = LocalAppUiSettings.current
+    val haptic = rememberHaptic()
+    Row(
+        modifier = Modifier.fillMaxWidth().aliveClickable { haptic(); onClick() }.padding(horizontal = 18.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(46.dp).clip(RoundedCornerShape(15.dp))
+                .background(ui.accent.copy(alpha = 0.16f))
+                .border(1.dp, ui.accent.copy(alpha = 0.25f), RoundedCornerShape(15.dp)),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = ui.accent, modifier = Modifier.size(23.dp)) }
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.titleMedium, color = ui.palette.textPrimary, fontWeight = FontWeight.Bold)
+            Text(sublabel, style = MaterialTheme.typography.bodySmall, color = ui.palette.textSecondary)
+        }
+        Icon(painterResource(R.drawable.ic_chevron_right_custom), null, tint = ui.palette.textTertiary, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -992,9 +1253,9 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(76.dp)
+                        .shadow(GlowSpec.Elevation, CircleShape, ambientColor = accent.copy(alpha = GlowSpec.AMBIENT), spotColor = accent.copy(alpha = GlowSpec.SPOT))
                         .clip(CircleShape)
                         .border(2.dp, BrandGradient, CircleShape)
-                        .shadow(16.dp, CircleShape, spotColor = accent)
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(DEVELOPER_IMAGE_URL).crossfade(true).build(),
@@ -1009,7 +1270,7 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
                         DEVELOPER_NAME,
                         style = MaterialTheme.typography.titleLarge,
                         color = LocalAppUiSettings.current.palette.textPrimary,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
                         "Independent Developer",
@@ -1018,14 +1279,14 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             Surface(
                 color = Color.White.copy(alpha = 0.98f),
                 shape = RoundedCornerShape(28.dp),
                 modifier = Modifier
                     .size(200.dp)
                     .border(1.5.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
-                    .shadow(24.dp, RoundedCornerShape(28.dp), spotColor = accent.copy(alpha = 0.25f))
+                    .shadow(GlowSpec.Elevation, RoundedCornerShape(28.dp), ambientColor = accent.copy(alpha = GlowSpec.AMBIENT), spotColor = accent.copy(alpha = GlowSpec.SPOT))
             ) {
                 Box(modifier = Modifier.padding(20.dp), contentAlignment = Alignment.Center) {
                     if (qrBitmap != null) {
@@ -1040,20 +1301,61 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
             Text(
                 "Support via UPI",
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.5.sp),
                 color = accent,
-                fontWeight = FontWeight.Black
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(32.dp))
-            PremiumButton(
-                text = "GitHub Profile",
-                onClick = onViewGithub,
-                modifier = Modifier.fillMaxWidth(),
-                icon = { Icon(painterResource(R.drawable.ic_list_custom), null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // GitHub: one clean full-width row (icon tile, title + handle, arrow)
+            val ui = LocalAppUiSettings.current
+            val rowShape = RoundedCornerShape(20.dp)
+            val ghInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+            val ghPressed by ghInteraction.collectIsPressedAsState()
+            val ghScale by androidx.compose.animation.core.animateFloatAsState(if (ghPressed) 0.97f else 1f, label = "ghPress")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { scaleX = ghScale; scaleY = ghScale }
+                    .clip(rowShape)
+                    .background(Color.White.copy(alpha = 0.06f))
+                    .border(1.dp, ui.palette.outlineFaint, rowShape)
+                    .clickable(interactionSource = ghInteraction, indication = null) { onViewGithub() }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(IconSky, accent))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(painterResource(R.drawable.ic_github), null, tint = Color.White, modifier = Modifier.size(22.dp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "GitHub Profile",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = ui.palette.textPrimary,
+                        maxLines = 1
+                    )
+                    Text(
+                        "raman-codes-6368",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ui.palette.textTertiary,
+                        maxLines = 1
+                    )
+                }
+                Icon(
+                    painterResource(R.drawable.ic_chevron_right_custom), null,
+                    tint = ui.palette.textTertiary, modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
@@ -1062,12 +1364,7 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
 
 @Composable
 private fun SettingsSectionHeader(title: String) {
-    val accent = LocalAppUiSettings.current.accent
-    Row(modifier = Modifier.padding(start = 24.dp, top = 36.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.width(5.dp).height(18.dp).clip(CircleShape).background(accent))
-        Spacer(modifier = Modifier.width(14.dp))
-        Text(text = title.uppercase(), style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp), color = accent, fontWeight = FontWeight.Black)
-    }
+    SectionHeader(title = title)
 }
 
 @Composable
@@ -1083,11 +1380,12 @@ private fun SettingsToggleRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val rowHaptic = rememberHaptic()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .aliveClickable { rowHaptic(); onCheckedChange(!checked) }
+            .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val accent = LocalAppUiSettings.current.accent
@@ -1097,14 +1395,9 @@ private fun SettingsToggleRow(
         Spacer(modifier = Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = label, style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
-            if (sublabel.isNotEmpty()) Text(text = sublabel, style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textTertiary)
+            if (sublabel.isNotEmpty()) Text(text = sublabel, style = MaterialTheme.typography.bodySmall, color = LocalAppUiSettings.current.palette.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Icon(
-            painter = painterResource(if (checked) R.drawable.ic_toggle_right_custom else R.drawable.ic_toggle_left_custom),
-            contentDescription = if (checked) "On" else "Off",
-            tint = if (checked) accent else LocalAppUiSettings.current.palette.textTertiary.copy(alpha = 0.6f),
-            modifier = Modifier.size(44.dp)
-        )
+        PremiumSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -1125,11 +1418,12 @@ private fun SettingsClickRow(
     tint: Color = Color.Unspecified,
     onClick: () -> Unit
 ) {
+    val rowHaptic = rememberHaptic()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
+            .aliveClickable { rowHaptic(); onClick() }
+            .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val accent = LocalAppUiSettings.current.accent
@@ -1146,7 +1440,7 @@ private fun SettingsClickRow(
             fontWeight = FontWeight.Bold
         )
         if (value.isNotEmpty()) {
-            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = accent.copy(alpha = 0.8f), fontWeight = FontWeight.Black)
+            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = accent.copy(alpha = 0.8f), fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(10.dp))
         }
         Icon(painter = painterResource(R.drawable.ic_chevron_right_custom), contentDescription = null, tint = LocalAppUiSettings.current.palette.textTertiary.copy(alpha = 0.5f), modifier = Modifier.size(22.dp))
@@ -1165,13 +1459,110 @@ private fun SettingsClickRow(
 @Composable
 private fun SettingsInfoRow(icon: Painter, label: String, value: String) {
     val accent = LocalAppUiSettings.current.accent
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         BrandIconContainer(size = 48.dp, cornerRadius = 14.dp) {
             Icon(icon, null, tint = accent, modifier = Modifier.size(24.dp))
         }
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(18.dp))
         Text(label, style = MaterialTheme.typography.titleMedium, color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
         Text(value, style = MaterialTheme.typography.bodyMedium, color = LocalAppUiSettings.current.palette.textSecondary, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+private fun SettingsFeedbackRow(
+    icon: Painter,
+    label: String,
+    email: String,
+    onClick: () -> Unit
+) {
+    val haptic = rememberHaptic()
+    val settings = LocalAppUiSettings.current
+    val accent = settings.accent
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aliveClickable { haptic(); onClick() }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BrandIconContainer(size = 48.dp, cornerRadius = 14.dp) {
+            Icon(icon, null, tint = accent, modifier = Modifier.size(24.dp))
+        }
+        Spacer(modifier = Modifier.width(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = settings.palette.textPrimary
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = email,
+                style = MaterialTheme.typography.bodySmall,
+                color = settings.palette.textSecondary,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .glassBadge(accent.copy(alpha = 0.12f), accent)
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Text(
+                text = "Send Email",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.5.sp),
+                color = accent
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsUpdateRow(
+    icon: Painter,
+    label: String,
+    status: String,
+    onClick: () -> Unit
+) {
+    val haptic = rememberHaptic()
+    val settings = LocalAppUiSettings.current
+    val accent = settings.accent
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aliveClickable { haptic(); onClick() }
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BrandIconContainer(size = 48.dp, cornerRadius = 14.dp) {
+            Icon(icon, null, tint = accent, modifier = Modifier.size(24.dp))
+        }
+        Spacer(modifier = Modifier.width(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = settings.palette.textPrimary
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = settings.palette.textSecondary
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_right_custom),
+            contentDescription = null,
+            tint = settings.palette.textTertiary.copy(alpha = 0.6f),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -1236,6 +1627,15 @@ fun PlaylistsScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var sortOrder by remember { mutableStateOf(FolderSortOrder.NAME_ASC) }
     var videoSortOrder by remember { mutableStateOf(VideoSortOrder.NAME_ASC) }
+    val plListState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val plGridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    LaunchedEffect(openPlaylist?.id) { plListState.scrollToItem(0); plGridState.scrollToItem(0) }
+    val plScrolled by remember {
+        derivedStateOf {
+            if (layoutMode == LayoutMode.LIST) plListState.firstVisibleItemIndex > 0 || plListState.firstVisibleItemScrollOffset > 0
+            else plGridState.firstVisibleItemIndex > 0 || plGridState.firstVisibleItemScrollOffset > 0
+        }
+    }
 
     if (showFilterSheet) {
         if (openPlaylist != null) {
@@ -1257,7 +1657,7 @@ fun PlaylistsScreen(
         }
     }
 
-    CinematicBackground {
+    Box(modifier = Modifier.fillMaxSize()) {
         if (openPlaylist != null) {
             val pl = openPlaylist!!
             val videos by remember(pl.videoPaths, allVideos) {
@@ -1281,84 +1681,100 @@ fun PlaylistsScreen(
                 }
             }
 
-            Column(modifier = Modifier.fillMaxSize()) {
-                MainTopAppBar(
-                    title = pl.name,
-                    isSearchActive = isSearchActive,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    onToggleSearch = {
-                        isSearchActive = !isSearchActive
-                        if (!isSearchActive) searchQuery = ""
-                    },
-                    showBackButton = true,
-                    onBack = {
-                        openPlaylist = null
-                        isSearchActive = false
-                        searchQuery = ""
-                    },
-                    currentLayout = layoutMode,
-                    onToggleLayout = { layoutMode = if (layoutMode == LayoutMode.LIST) LayoutMode.GRID else LayoutMode.LIST },
-                    onShowFilter = { showFilterSheet = true }
-                )
-
-                // Active Playlist Action Bar
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PremiumButton(
-                        text = "Play All",
-                        onClick = { if(videos.isNotEmpty()) onVideoClick(videos.first(), videos, pl.name) },
-                        icon = { Icon(painterResource(R.drawable.ic_play_custom), null, tint = Color.White, modifier = Modifier.size(20.dp)) },
-                        modifier = Modifier.weight(1f)
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    MainTopAppBar(
+                        title = pl.name,
+                        isSearchActive = isSearchActive,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { searchQuery = it },
+                        onToggleSearch = {
+                            isSearchActive = !isSearchActive
+                            if (!isSearchActive) searchQuery = ""
+                        },
+                        showBackButton = true,
+                        onBack = {
+                            openPlaylist = null
+                            isSearchActive = false
+                            searchQuery = ""
+                        },
+                        currentLayout = layoutMode,
+                        onToggleLayout = { layoutMode = if (layoutMode == LayoutMode.LIST) LayoutMode.GRID else LayoutMode.LIST },
+                        onShowFilter = { showFilterSheet = true },
+                        isScrolled = plScrolled
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    PremiumIconButton(
-                        icon = painterResource(R.drawable.ic_shuffle_custom),
-                        onClick = {
-                            if(videos.isNotEmpty()) {
-                                onVideoClick(videos.random(), videos, pl.name)
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    PremiumIconButton(
-                        icon = painterResource(R.drawable.ic_plus_custom),
-                        onClick = { addToPlaylist = pl }
-                    )
+                }
+            ) { padding ->
+                val topPad = padding.calculateTopPadding()
+                val bottomPad = padding.calculateBottomPadding() + 140.dp
+                val actionBar: @Composable () -> Unit = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PremiumButton(
+                            text = "Play All",
+                            onClick = { if (videos.isNotEmpty()) onVideoClick(videos.first(), videos, pl.name) },
+                            icon = { Icon(painterResource(R.drawable.ic_play_custom), null, tint = Color.White, modifier = Modifier.size(20.dp)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        PremiumIconButton(
+                            icon = painterResource(R.drawable.ic_shuffle_custom),
+                            onClick = { if (videos.isNotEmpty()) onVideoClick(videos.random(), videos, pl.name) }
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        PremiumIconButton(
+                            icon = painterResource(R.drawable.ic_plus_custom),
+                            onClick = { addToPlaylist = pl }
+                        )
+                    }
+                }
+                val removeVideo: (VideoFile) -> Unit = { video ->
+                    val updated = pl.copy(videoPaths = pl.videoPaths.filter { it != video.path })
+                    val idx = playlists.indexOfFirst { it.id == pl.id }
+                    if (idx >= 0) { playlists[idx] = updated; openPlaylist = updated; persist() }
                 }
 
                 if (videos.isEmpty()) {
-                    PlaylistEmptyState(message = "This playlist is currently empty.") { addToPlaylist = pl }
-                } else {
-                    if (layoutMode == LayoutMode.LIST) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 140.dp)
-                        ) {
-                            items(filteredVideos, key = { it.id }) { video ->
+                    Column(modifier = Modifier.fillMaxSize().padding(top = topPad)) {
+                        actionBar()
+                        PlaylistEmptyState(message = "This playlist is currently empty.") { addToPlaylist = pl }
+                    }
+                } else if (layoutMode == LayoutMode.LIST) {
+                    LazyColumn(
+                        state = plListState,
+                        modifier = Modifier.glassSource().fillMaxSize(),
+                        contentPadding = PaddingValues(top = topPad, bottom = bottomPad)
+                    ) {
+                        item(key = "actions") { actionBar() }
+                        item(key = "header") { SectionHeader("Videos", count = videos.size, topPadding = 4.dp) }
+                        items(filteredVideos, key = { it.id }) { video ->
+                            Column {
                                 PlaylistVideoRow(
                                     video = video,
                                     onClick = { onVideoClick(video, videos, pl.name) },
-                                    onRemove = {
-                                        val updated = pl.copy(videoPaths = pl.videoPaths.filter { it != video.path })
-                                        val idx = playlists.indexOfFirst { it.id == pl.id }
-                                        if (idx >= 0) { playlists[idx] = updated; openPlaylist = updated; persist() }
-                                    }
+                                    onRemove = { removeVideo(video) }
                                 )
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = LocalAppUiSettings.current.palette.outlineFaint)
                             }
                         }
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 140.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(filteredVideos, key = { it.id }) { video ->
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        state = plGridState,
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.glassSource().fillMaxSize(),
+                        contentPadding = PaddingValues(top = topPad, bottom = bottomPad),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item(key = "actions", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { actionBar() }
+                        item(key = "header", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            SectionHeader("Videos", count = videos.size, topPadding = 4.dp)
+                        }
+                        items(filteredVideos.size, key = { filteredVideos[it].id }) { index ->
+                            val video = filteredVideos[index]
+                            Box(modifier = Modifier.padding(start = if (index % 2 == 0) 20.dp else 8.dp, end = if (index % 2 == 0) 8.dp else 20.dp)) {
                                 VideoGridItem(video = video, onClick = { onVideoClick(video, videos, pl.name) })
                             }
                         }
@@ -1380,65 +1796,84 @@ fun PlaylistsScreen(
                 }
             }
 
-            Column(modifier = Modifier.fillMaxSize()) {
-                MainTopAppBar(
-                    title = "Playlists",
-                    isSearchActive = isSearchActive,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { searchQuery = it },
-                    onToggleSearch = {
-                        isSearchActive = !isSearchActive
-                        if (!isSearchActive) searchQuery = ""
-                    },
-                    currentLayout = layoutMode,
-                    onToggleLayout = { layoutMode = if (layoutMode == LayoutMode.LIST) LayoutMode.GRID else LayoutMode.LIST },
-                    onShowFilter = { showFilterSheet = true }
-                )
-
-                // Global Playlist Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PremiumButton(
-                        text = "New Playlist",
-                        onClick = { showCreateDialog = true },
-                        icon = { Icon(painterResource(R.drawable.ic_playlist_add_custom), null, tint = Color.White, modifier = Modifier.size(22.dp)) },
-                        modifier = Modifier.weight(1f)
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    MainTopAppBar(
+                        title = "Playlists",
+                        isSearchActive = isSearchActive,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { searchQuery = it },
+                        onToggleSearch = {
+                            isSearchActive = !isSearchActive
+                            if (!isSearchActive) searchQuery = ""
+                        },
+                        currentLayout = layoutMode,
+                        onToggleLayout = { layoutMode = if (layoutMode == LayoutMode.LIST) LayoutMode.GRID else LayoutMode.LIST },
+                        onShowFilter = { showFilterSheet = true },
+                        isScrolled = plScrolled
                     )
+                }
+            ) { padding ->
+                val topPad = padding.calculateTopPadding()
+                val bottomPad = padding.calculateBottomPadding() + 140.dp
+                val actionBar: @Composable () -> Unit = {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        PremiumButton(
+                            text = "New Playlist",
+                            onClick = { showCreateDialog = true },
+                            icon = { Icon(painterResource(R.drawable.ic_playlist_add_custom), null, tint = Color.White, modifier = Modifier.size(22.dp)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 if (playlists.isEmpty()) {
-                    PlaylistEmptyState(message = "Organize your library by creating your first playlist.") { showCreateDialog = true }
-                } else {
-                    if (layoutMode == LayoutMode.LIST) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 140.dp)
-                        ) {
-                            items(filteredPlaylists, key = { it.id }) { pl ->
-                                val thumbVideo = remember(pl.videoPaths, allVideos) {
-                                    val pathSet = pl.videoPaths.toHashSet()
-                                    allVideos.firstOrNull { it.path in pathSet }
-                                }
+                    Column(modifier = Modifier.fillMaxSize().padding(top = topPad)) {
+                        actionBar()
+                        PlaylistEmptyState(message = "Organize your library by creating your first playlist.") { showCreateDialog = true }
+                    }
+                } else if (layoutMode == LayoutMode.LIST) {
+                    LazyColumn(
+                        state = plListState,
+                        modifier = Modifier.glassSource().fillMaxSize(),
+                        contentPadding = PaddingValues(top = topPad, bottom = bottomPad)
+                    ) {
+                        item(key = "actions") { actionBar() }
+                        item(key = "header") { SectionHeader("Your Playlists", count = playlists.size, topPadding = 4.dp) }
+                        items(filteredPlaylists, key = { it.id }) { pl ->
+                            val thumbVideo = remember(pl.videoPaths, allVideos) {
+                                val pathSet = pl.videoPaths.toHashSet()
+                                allVideos.firstOrNull { it.path in pathSet }
+                            }
+                            Column {
                                 PlaylistCard(
                                     playlist = pl,
                                     thumbVideo = thumbVideo,
                                     onClick = { openPlaylist = pl },
                                     onDelete = { deleteTarget = pl }
                                 )
-                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Fixed(2),
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 140.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(filteredPlaylists, key = { it.id }) { pl ->
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        state = plGridState,
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.glassSource().fillMaxSize(),
+                        contentPadding = PaddingValues(top = topPad, bottom = bottomPad),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item(key = "actions", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) { actionBar() }
+                        item(key = "header", span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                            SectionHeader("Your Playlists", count = playlists.size, topPadding = 4.dp)
+                        }
+                        items(filteredPlaylists.size, key = { filteredPlaylists[it].id }) { index ->
+                            val pl = filteredPlaylists[index]
+                            Box(modifier = Modifier.padding(start = if (index % 2 == 0) 20.dp else 8.dp, end = if (index % 2 == 0) 8.dp else 20.dp)) {
                                 FolderGridItem(
                                     folder = VideoFolder(pl.name, pl.id, pl.videoPaths.size, ""),
                                     onClick = { openPlaylist = pl }
@@ -1463,6 +1898,8 @@ fun PlaylistsScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.White,
                     unfocusedBorderColor = LocalAppUiSettings.current.palette.outlineMedium,
+                    focusedContainerColor = glassFieldFill(),
+                    unfocusedContainerColor = glassFieldFill(),
                     focusedTextColor = LocalAppUiSettings.current.palette.textPrimary,
                     unfocusedTextColor = LocalAppUiSettings.current.palette.textPrimary,
                     cursorColor = LocalAppUiSettings.current.accent
@@ -1524,15 +1961,13 @@ fun PlaylistsScreen(
                 } else {
                     LazyColumn(modifier = Modifier.heightIn(max = 480.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(available, key = { it.id }) { video ->
-                            Surface(
+                            GlassSurface(
                                 onClick = {
                                     val updated = pl.copy(videoPaths = pl.videoPaths + video.path)
                                     val idx = playlists.indexOfFirst { it.id == pl.id }
                                     if (idx >= 0) { playlists[idx] = updated; addToPlaylist = updated; if (openPlaylist?.id == pl.id) openPlaylist = updated; persist() }
                                 },
-                                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)),
-                                color = Color.White.copy(alpha = 0.08f),
-                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(20.dp)
                             ) {
                                 Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1565,20 +2000,18 @@ private fun PlaylistCard(playlist: Playlist, thumbVideo: VideoFile?, onClick: ()
     val context = LocalContext.current
     val accent = LocalAppUiSettings.current.accent
 
-    PremiumCardSurface(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
-        cornerRadius = 32.dp
+    ListRowSurface(
+        modifier = Modifier.fillMaxWidth().staggerIn(0),
+        onClick = onClick
     ) {
-        Row(modifier = Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             // Visual Stack — Multi-layered icon or thumbnail
             Box(
                 modifier = Modifier
-                    .size(110.dp, 70.dp)
-                    .shadow(12.dp, RoundedCornerShape(20.dp))
-                    .clip(RoundedCornerShape(20.dp))
+                    .size(100.dp, 60.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(LocalAppUiSettings.current.palette.surfaceRaisedAlt)
-                    .border(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(0.2f), Color.Transparent)), RoundedCornerShape(20.dp)),
+                    .border(1.2.dp, Brush.verticalGradient(listOf(Color.White.copy(0.2f), Color.Transparent)), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (thumbVideo != null) {
@@ -1613,7 +2046,7 @@ private fun PlaylistCard(playlist: Playlist, thumbVideo: VideoFile?, onClick: ()
                     color = LocalAppUiSettings.current.palette.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1653,18 +2086,9 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
         label = "itemScale"
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer(scaleX = scale, scaleY = scale)
-            .clip(RoundedCornerShape(24.dp))
-            .combinedClickable(
-                onClick = onClick,
-                interactionSource = interactionSource,
-                indication = null
-            )
-            .background(LocalAppUiSettings.current.palette.surfaceRaised.copy(alpha = 0.5f))
-            .border(0.8.dp, LocalAppUiSettings.current.palette.outlineFaint, RoundedCornerShape(24.dp))
+    ListRowSurface(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -1673,7 +2097,6 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
             Box(
                 modifier = Modifier
                     .size(100.dp, 60.dp)
-                    .shadow(6.dp, RoundedCornerShape(14.dp))
                     .clip(RoundedCornerShape(14.dp))
                     .background(LocalAppUiSettings.current.palette.surfaceRaisedAlt)
                     .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(14.dp))
@@ -1691,7 +2114,7 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
                     )
                 }
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.ic_play_custom), null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(24.dp))
+                    BrandMark(size = 30.dp, breathe = false, modifier = Modifier.graphicsLayer { alpha = 0.9f })
                 }
                 if (LocalAppUiSettings.current.showDurationBadge) {
                     DurationBadge(
@@ -1703,20 +2126,20 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
             Spacer(modifier = Modifier.width(18.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatFileName(video.name),
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = formatDate(video.dateAdded),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                     color = LocalAppUiSettings.current.palette.textPrimary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.ExtraBold
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text = formatSize(video.size), style = MaterialTheme.typography.labelSmall, color = LocalAppUiSettings.current.palette.textSecondary, fontWeight = FontWeight.Bold)
-                    if (video.width > 0) {
-                        QualityBadge(width = video.width, height = video.height)
-                    }
-                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = formatFileName(video.name),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = LocalAppUiSettings.current.palette.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             PremiumIconButton(
                 icon = painterResource(R.drawable.ic_minus_custom),
@@ -1744,10 +2167,12 @@ private fun PlaylistEmptyState(message: String, onAction: () -> Unit) {
                 Icon(painterResource(R.drawable.ic_playlist_custom), null, tint = accent.copy(alpha = 0.8f), modifier = Modifier.size(52.dp))
             }
             Spacer(modifier = Modifier.height(36.dp))
-            Text(text = "Empty Playlist", style = MaterialTheme.typography.headlineSmall, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Black)
+            Text(text = "Empty Playlist", style = MaterialTheme.typography.headlineSmall, color = LocalAppUiSettings.current.palette.textPrimary, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(14.dp))
             Text(text = message, style = MaterialTheme.typography.bodyLarge, color = LocalAppUiSettings.current.palette.textSecondary, textAlign = TextAlign.Center)
-            Spacer(modifier = Modifier.height(44.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+            QuipLine(Quips.empty("playlist"), align = TextAlign.Center)
+            Spacer(modifier = Modifier.height(32.dp))
             PremiumButton(text = "Add Content", onClick = onAction, modifier = Modifier.fillMaxWidth(0.85f))
         }
     }
@@ -1759,9 +2184,10 @@ fun AddToPlaylistDialog(video: VideoFile, onDismiss: () -> Unit) {
     val playlists = remember { mutableStateListOf<Playlist>().also { it.addAll(loadPlaylists(context)) } }
 
     PremiumBottomSheet(onDismiss = onDismiss) {
-        Text("Add to Playlist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = LocalAppUiSettings.current.palette.textPrimary)
-        Spacer(modifier = Modifier.height(24.dp))
-        
+        Text("Add to Playlist", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = LocalAppUiSettings.current.palette.textPrimary)
+        QuipLine(Quips.dialog("add to playlist"), modifier = Modifier.padding(top = 2.dp))
+        Spacer(modifier = Modifier.height(22.dp))
+
         if (playlists.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
                 Text("No playlists found. Create one in the Playlists tab.", style = MaterialTheme.typography.bodyLarge, color = LocalAppUiSettings.current.palette.textSecondary, textAlign = TextAlign.Center)
