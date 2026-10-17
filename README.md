@@ -119,27 +119,6 @@ CoverPlay has a sense of humour. Expect witty one-liners in dialogs and stats, a
 
 ---
 
-## Getting started
-
-```bash
-# 1. Clone
-git clone https://github.com/raman-codes-6368/CoverPlay.git
-
-# 2. Open in Android Studio (latest stable)
-
-# 3. Sync Gradle, then run on a device or emulator
-```
-
-**Requirements:** Android Studio (latest stable), JDK 17, a device or emulator on a recent Android version.
-
-> If your repository name differs, update the clone URL above.
-
-### Optional: OpenSubtitles
-
-To use online subtitle search, add your own API key where `MainActivity.kt` expects it. You can get one at [opensubtitles.com](https://www.opensubtitles.com/en/consumers). Never commit real keys to a public repo.
-
----
-
 ## Privacy
 
 - No ads and no analytics SDKs.
@@ -169,12 +148,6 @@ CoverPlay is free and always will be. If it made your videos feel better, you ca
 - Star the repo
 - Share it with a friend
 - Support the developer via **UPI** from the *About Developer* screen in the app
-
----
-
-## License
-
-Add your license here (for example MIT or GPL-3.0) and include a `LICENSE` file in the repo root.
 
 ---
 
