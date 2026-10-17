@@ -1,6 +1,5 @@
 <div align="center">
 
-<!-- Replace with your icon: put it at assets/icon.png -->
 <img src="assets/icon.png" width="120" alt="CoverPlay icon" />
 
 # CoverPlay
@@ -19,13 +18,12 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 
 <br/>
 
-<!-- Add screenshots at assets/ and uncomment -->
-<!--
-<img src="assets/shot-home.png" width="22%" />
-<img src="assets/shot-player.png" width="22%" />
-<img src="assets/shot-themes.png" width="22%" />
-<img src="assets/shot-landscape.png" width="30%" />
--->
+<img src="assets/shot-home.jpg" width="19%" />
+<img src="assets/shot-stats.jpg" width="19%" />
+<img src="assets/shot-suggested.jpg" width="19%" />
+<img src="assets/shot-folders.jpg" width="19%" />
+<br/><br/>
+<img src="assets/shot-player.jpg" width="80%" />
 
 </div>
 
