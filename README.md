@@ -23,8 +23,8 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 <img src="assets/shot-settings.jpg" width="19%" />
 <img src="assets/shot-suggested.jpg" width="19%" />
 <img src="assets/shot-folders.jpg" width="19%" />
-<br/><br/>
-<img src="assets/shot-player.jpg" width="80%" />
+
+<br/>
 
 </div>
 
