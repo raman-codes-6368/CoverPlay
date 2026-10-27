@@ -192,8 +192,8 @@ private const val RECENTS_KEEP_MS = RECENTS_KEEP_DAYS * 24L * 60L * 60L * 1000L
 // rest.opensubtitles.org endpoint was deprecated/shut down, which is why
 // online subtitle search stopped working — this replaces it with the
 // current API. Get/rotate your key at https://www.opensubtitles.com/en/consumers
-private const val OPENSUBTITLES_API_KEY = "f9wGIFAKsW0aegiIE7L1I1WJuQYsCA5Y"
-private const val OPENSUBTITLES_USER_AGENT = "CoverPlay v1.0"
+private const val OPENSUBTITLES_API_KEY = "wacgn80dDk8d54nmhTOUSEW67rz4AumW"
+private const val OPENSUBTITLES_USER_AGENT = "CoverPlay v3.0.5"
 
 // --- Data Models ---
 
@@ -410,9 +410,24 @@ fun MainApp(externalVideoUri: Uri? = null, onConsumed: () -> Unit = {}) {
 @Composable
 fun SplashScreen(onAnimationFinish: () -> Unit) {
     val settings = LocalAppUiSettings.current
+    val palette = settings.palette
+    val isDark = palette.isDark
     val accent = settings.accent
     val highlight = settings.highlight
     var startAnimation by remember { mutableStateOf(false) }
+
+    val textBrush = if (isDark) {
+        Brush.linearGradient(listOf(Color.White, Color.White.copy(alpha = 0.92f), accent))
+    } else {
+        Brush.linearGradient(listOf(palette.textPrimary, accent, palette.textPrimary))
+    }
+    val shadowColor = if (isDark) accent.copy(alpha = 0.5f) else accent.copy(alpha = 0.25f)
+    val trackBg = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.08f)
+    val progressShimmer = if (isDark) {
+        listOf(Color.Transparent, accent, Color.White, accent, Color.Transparent)
+    } else {
+        listOf(Color.Transparent, accent, highlight, accent, Color.Transparent)
+    }
 
     // ── Ultra-Minimalist High-End Entrance ──────────────────────────────────
     val logoScale by animateFloatAsState(
@@ -456,7 +471,7 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
     }
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
+        modifier = Modifier.fillMaxSize().background(palette.bg),
         contentAlignment = Alignment.Center
     ) {
         // Soft ambient background
@@ -468,7 +483,7 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
                     .size(720.dp)
                     .align(Alignment.Center)
                     .graphicsLayer {
-                        alpha = 0.20f * logoAlpha * shimmerAlpha
+                        alpha = (if (isDark) 0.20f else 0.12f) * logoAlpha * shimmerAlpha
                         scaleX = 0.7f + (0.3f * logoScale)
                         scaleY = 0.7f + (0.3f * logoScale)
                     }
@@ -518,11 +533,9 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
                         fontSize = 42.sp,
                         letterSpacing = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        brush = Brush.linearGradient(
-                            listOf(Color.White, Color.White.copy(alpha = 0.92f), accent)
-                        ),
+                        brush = textBrush,
                         shadow = androidx.compose.ui.graphics.Shadow(
-                            color = accent.copy(alpha = 0.5f),
+                            color = shadowColor,
                             blurRadius = 24f
                         )
                     ),
@@ -537,7 +550,7 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 4.sp,
-                        color = accent.copy(alpha = 0.85f * shimmerAlpha)
+                        color = if (isDark) accent.copy(alpha = 0.85f * shimmerAlpha) else palette.textSecondary
                     ),
                     textAlign = TextAlign.Center
                 )
@@ -552,7 +565,7 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
                     .width(140.dp)
                     .height(2.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.08f))
+                    .background(trackBg)
             ) {
                 val progress by infiniteTransition.animateFloat(
                     initialValue = 0f, targetValue = 1f,
@@ -566,9 +579,7 @@ fun SplashScreen(onAnimationFinish: () -> Unit) {
                         .fillMaxWidth(0.4f)
                         .offset(x = 140.dp * (progress * 1.6f - 0.6f))
                         .background(
-                            Brush.horizontalGradient(
-                                listOf(Color.Transparent, accent, Color.White, accent, Color.Transparent)
-                            )
+                            Brush.horizontalGradient(progressShimmer)
                         )
                 )
             }
@@ -624,7 +635,7 @@ fun MainContent(externalVideoUri: Uri? = null, onConsumed: () -> Unit = {}) {
             .bitmapConfig(android.graphics.Bitmap.Config.RGB_565)
             .allowRgb565(true)
             .crossfade(true)
-            .build()
+            .build().also { coil.Coil.setImageLoader(it) }
     }
 
     CompositionLocalProvider(coil.compose.LocalImageLoader provides imageLoader) {
@@ -774,25 +785,10 @@ fun MainContent(externalVideoUri: Uri? = null, onConsumed: () -> Unit = {}) {
                 backdrop = backdrop,
                 hazeState = hazeState,
                 overlay = {
-                    if (currentScreen != Screen.PLAYER) {
-                        Box(
-                            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(160.dp)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            Color.Transparent,
-                                            LocalAppUiSettings.current.palette.bg.copy(alpha = 0.25f),
-                                            LocalAppUiSettings.current.palette.bg.copy(alpha = 0.75f),
-                                            LocalAppUiSettings.current.palette.bg.copy(alpha = 0.95f)
-                                        )
-                                    )
-                                )
-                        )
-                    }
                     AnimatedVisibility(
                         visible = currentScreen != Screen.PLAYER,
-                        enter = slideInVertically(animationSpec = tween(200)) { it } + fadeIn(),
-                        exit = slideOutVertically(animationSpec = tween(200)) { it } + fadeOut(),
+                        enter = slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(220)),
+                        exit = slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180)),
                         modifier = Modifier.align(Alignment.BottomCenter)
                     ) {
                         BottomNavigationBar(
@@ -1644,38 +1640,6 @@ private fun VideoPlayerScreenContent(
         didRetrySoftwareDecode = false
     }
 
-    val subtitlePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            uri?.let {
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        it,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (e: Exception) {}
-
-                val subtitleConfig = MediaItem.SubtitleConfiguration.Builder(it)
-                    .setMimeType(guessSubtitleMimeType(context, it))
-                    .setLanguage("en")
-                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                    .build()
-
-                val currentMediaItem = exoPlayer.currentMediaItem
-                if (currentMediaItem != null) {
-                    val currentSubtitles = currentMediaItem.localConfiguration?.subtitleConfigurations.orEmpty()
-                    val newMediaItem = currentMediaItem.buildUpon()
-                        .setSubtitleConfigurations(currentSubtitles + subtitleConfig)
-                        .build()
-                    val currentPos = exoPlayer.currentPosition
-                    exoPlayer.setMediaItem(newMediaItem, currentPos)
-                    exoPlayer.prepare()
-                    exoPlayer.play()
-                }
-            }
-        }
-    )
-
     // Tracks whichever video's position we're responsible for persisting.
     // Needed because switching to a new video inside the same screen
     // instance (via folderVideos / onPlayVideo) does NOT tear down this
@@ -1737,6 +1701,10 @@ private fun VideoPlayerScreenContent(
 
     var showSubtitleCustomization by remember { mutableStateOf(false) }
     var showOnlineSubtitleSearch by remember { mutableStateOf(false) }
+    var showLocalSubtitleDialog by remember { mutableStateOf(false) }
+    var showAudioSelector by remember { mutableStateOf(false) }
+    var showSubtitleSelector by remember { mutableStateOf(false) }
+    var showSpeedSelector by remember { mutableStateOf(false) }
     var showFolderVideos by remember { mutableStateOf(false) }
     var showHUD by remember { mutableStateOf(false) }
     var showExpressiveSheet by remember { mutableStateOf(false) }
@@ -1784,6 +1752,45 @@ private fun VideoPlayerScreenContent(
         }
     }
     var showControls by remember { mutableStateOf(true) }
+    fun attachSubtitle(uri: Uri) {
+        val cfg = MediaItem.SubtitleConfiguration.Builder(uri)
+            .setMimeType(guessSubtitleMimeType(context, uri))
+            .setLanguage("en")
+            .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+            .build()
+        val cur = exoPlayer.currentMediaItem ?: return
+        val idx = exoPlayer.currentMediaItemIndex
+        val pos = exoPlayer.currentPosition
+        val updated = cur.buildUpon()
+            .setSubtitleConfigurations(cur.localConfiguration?.subtitleConfigurations.orEmpty() + cfg)
+            .build()
+        exoPlayer.replaceMediaItem(idx, updated)
+        exoPlayer.seekTo(idx, pos)
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setDisabledTrackTypes(emptySet()).build()
+        exoPlayer.play()
+        showLocalSubtitleDialog = false
+        showSubtitleSelector = false
+        showOnlineSubtitleSearch = false
+        updateOrientation(context, true, isForcedLandscape, isDarkTheme)
+        showControls = true
+    }
+    val subtitlePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            showLocalSubtitleDialog = false
+            showSubtitleSelector = false
+            if (uri != null) {
+                try {
+                    context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                } catch (e: Exception) {}
+                attachSubtitle(uri)
+            } else {
+                updateOrientation(context, true, isForcedLandscape, isDarkTheme)
+                showControls = true
+            }
+        }
+    )
     val isInPip = PipState.isInPip
 
     // This screen is the only place PiP makes sense -- tell the Activity it's
@@ -1803,13 +1810,10 @@ private fun VideoPlayerScreenContent(
     val chapters by produceState<List<VideoChapter>>(emptyList(), video.uri) {
         value = withContext(Dispatchers.IO) { ChapterReader.read(context, video.uri) }
     }
-    var showAudioSelector by remember { mutableStateOf(false) }
     var isMuted by remember {
         val currentVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         mutableStateOf(currentVol == 0)
     }
-    var showSubtitleSelector by remember { mutableStateOf(false) }
-    var showSpeedSelector by remember { mutableStateOf(false) }
     var currentSpeed by remember { mutableFloatStateOf(defaultSpeed) }
     var repeatMode by remember { mutableIntStateOf(Player.REPEAT_MODE_OFF) }
     var isShuffleEnabled by remember { mutableStateOf(false) }
@@ -2579,10 +2583,12 @@ private fun VideoPlayerScreenContent(
 
     LaunchedEffect(
         showControls, isScrubbing, isPlaying, showVerticalBar, isControlsLocked,
-        showAudioSelector, showSubtitleSelector, showSpeedSelector, showHUD, showFolderVideos, showExpressiveSheet
+        showAudioSelector, showSubtitleSelector, showLocalSubtitleDialog, showOnlineSubtitleSearch,
+        showSubtitleCustomization, showSpeedSelector, showHUD, showFolderVideos, showExpressiveSheet
     ) {
         if (showControls && isPlaying && !isScrubbing && !showVerticalBar &&
-            !showAudioSelector && !showSubtitleSelector && !showSpeedSelector &&
+            !showAudioSelector && !showSubtitleSelector && !showLocalSubtitleDialog &&
+            !showOnlineSubtitleSearch && !showSubtitleCustomization && !showSpeedSelector &&
             !showHUD && !showFolderVideos && !showExpressiveSheet
         ) {
             delay(3000L)
@@ -3116,31 +3122,23 @@ private fun VideoPlayerScreenContent(
             TrackSelectionPanel(showAudioSelector, exoPlayer, C.TRACK_TYPE_AUDIO, { showAudioSelector = false })
             TrackSelectionPanel(
                 showSubtitleSelector, exoPlayer, C.TRACK_TYPE_TEXT, { showSubtitleSelector = false },
-                onAddLocalSubtitle = { subtitlePickerLauncher.launch(arrayOf("*/*")) },
+                onAddLocalSubtitle = { showLocalSubtitleDialog = true },
                 onSearchOnline = { showOnlineSubtitleSearch = true },
                 onCustomize = { showSubtitleCustomization = true }
             )
             if (showSubtitleCustomization) SubtitleCustomizationDialog { showSubtitleCustomization = false }
             if (showOnlineSubtitleSearch) {
                 OnlineSubtitleSearchDialog(video.name, { showOnlineSubtitleSearch = false }) { url ->
-                    val subtitleUri = Uri.parse(url)
-                    val subtitleConfig = MediaItem.SubtitleConfiguration.Builder(subtitleUri)
-                        .setMimeType(guessSubtitleMimeType(context, subtitleUri))
-                        .setLanguage("en")
-                        .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
-                        .build()
-                    val currentMediaItem = exoPlayer.currentMediaItem
-                    if (currentMediaItem != null) {
-                        val currentSubtitles = currentMediaItem.localConfiguration?.subtitleConfigurations.orEmpty()
-                        val newMediaItem = currentMediaItem.buildUpon()
-                            .setSubtitleConfigurations(currentSubtitles + subtitleConfig)
-                            .build()
-                        val currentPos = exoPlayer.currentPosition
-                        exoPlayer.setMediaItem(newMediaItem, currentPos)
-                        exoPlayer.prepare()
-                        exoPlayer.play()
-                    }
+                    attachSubtitle(Uri.parse(url))
                 }
+            }
+            if (showLocalSubtitleDialog) {
+                LocalSubtitleDialog(
+                    video = video,
+                    onDismiss = { showLocalSubtitleDialog = false },
+                    onPick = { uri -> showLocalSubtitleDialog = false; attachSubtitle(uri) },
+                    onBrowse = { showLocalSubtitleDialog = false; subtitlePickerLauncher.launch(arrayOf("*/*")) }
+                )
             }
             PlaybackSpeedSidePanel(showSpeedSelector, currentSpeed, { currentSpeed = it; exoPlayer.setPlaybackSpeed(it) }, { showSpeedSelector = false })
 
@@ -4157,6 +4155,47 @@ fun fetchVideoFolders(context: Context, folders: MutableList<VideoFolder>) {
 
 fun fetchVideosInFolder(context: Context, folderPath: String, videos: MutableList<VideoFile>) {
     val tempVideos = mutableListOf<VideoFile>()
+
+    // 1. Virtual Folder: All Media
+    if (folderPath == "/" || folderPath == "/all" || folderPath.equals("all media", ignoreCase = true)) {
+        fetchAllVideos(context, tempVideos)
+        videos.clear()
+        videos.addAll(tempVideos)
+        return
+    }
+
+    // 2. Virtual Folder: Recent Videos
+    if (folderPath == "/recent" || folderPath.equals("recent videos", ignoreCase = true) || folderPath.equals("recent", ignoreCase = true)) {
+        fetchAllVideos(context, tempVideos)
+        val sortedByDate = tempVideos.sortedByDescending { if (it.dateAdded > 0) it.dateAdded else it.id }
+        videos.clear()
+        videos.addAll(sortedByDate.take(30))
+        return
+    }
+
+    // 3. Virtual Folder: Downloads
+    if (folderPath == "/download" || folderPath == "/downloads" || folderPath.equals("downloads", ignoreCase = true) || folderPath.equals("download", ignoreCase = true)) {
+        fetchAllVideos(context, tempVideos)
+        val matching = tempVideos.filter {
+            it.path.contains("download", ignoreCase = true) || it.path.contains("downloads", ignoreCase = true)
+        }
+        videos.clear()
+        videos.addAll(matching.ifEmpty { tempVideos })
+        return
+    }
+
+    // 4. Virtual Folder: Camera
+    if (folderPath == "/camera" || folderPath.equals("camera", ignoreCase = true)) {
+        fetchAllVideos(context, tempVideos)
+        val matching = tempVideos.filter {
+            it.path.contains("camera", ignoreCase = true) || it.path.contains("dcim", ignoreCase = true)
+        }
+        videos.clear()
+        videos.addAll(matching.ifEmpty { tempVideos })
+        return
+    }
+
+    // 5. Real Disk Folder
     val projection = arrayOf(
         MediaStore.Video.Media._ID,
         MediaStore.Video.Media.DISPLAY_NAME,
@@ -4176,7 +4215,7 @@ fun fetchVideosInFolder(context: Context, folderPath: String, videos: MutableLis
         projection,
         selection,
         selectionArgs,
-        null
+        "${MediaStore.Video.Media.DATE_ADDED} DESC"
     )
 
     cursor?.use {
@@ -4198,12 +4237,28 @@ fun fetchVideosInFolder(context: Context, folderPath: String, videos: MutableLis
             val width = it.getInt(widthCol)
             val height = it.getInt(heightCol)
             val dateAdded = it.getLong(dateCol)
-            val contentUri =
-                ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
+            val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
 
             tempVideos.add(VideoFile(id, name, path, duration, size, contentUri, width, height, dateAdded))
         }
     }
+
+    // Fallback: If MediaStore query returns empty (e.g. Due to folder path format differences), filter allVideos by parent
+    if (tempVideos.isEmpty()) {
+        val normalizedFolder = runCatching { File(folderPath).canonicalPath }.getOrDefault(folderPath)
+        fetchAllVideos(context, tempVideos)
+        val inFolder = tempVideos.filter {
+            runCatching {
+                val parent = File(it.path).parentFile?.canonicalPath ?: ""
+                parent == normalizedFolder || parent.startsWith(normalizedFolder)
+            }.getOrDefault(false)
+        }
+        if (inFolder.isNotEmpty()) {
+            tempVideos.clear()
+            tempVideos.addAll(inFolder)
+        }
+    }
+
     videos.clear()
     videos.addAll(tempVideos)
 }
@@ -4882,5 +4937,87 @@ private fun HUDChip(text: String, color: Color) {
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             fontWeight = FontWeight.Bold
         )
+    }
+}
+
+@Composable
+fun LocalSubtitleDialog(
+    video: VideoFile,
+    onDismiss: () -> Unit,
+    onPick: (Uri) -> Unit,
+    onBrowse: () -> Unit
+) {
+    val exts = setOf("srt", "vtt", "ass", "ssa", "ttml", "dfxp")
+    val base = File(video.path).nameWithoutExtension
+    val files = remember(video.path) {
+        runCatching {
+            File(video.path).parentFile?.listFiles()
+                ?.filter { it.isFile && it.extension.lowercase() in exts }
+                ?.sortedWith(compareByDescending<File> { it.nameWithoutExtension.startsWith(base) }.thenBy { it.name.lowercase() })
+                .orEmpty()
+        }.getOrDefault(emptyList())
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    ) {
+        GlassDialogBackdrop(blurRadius = 36, dim = 0.45f)
+        CinematicPanel(
+            modifier = Modifier
+                .widthIn(max = 360.dp)
+                .fillMaxWidth(0.85f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Local Subtitles",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    PremiumDialogCloseButton(onClick = onDismiss)
+                }
+
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (files.isEmpty()) {
+                        Text(
+                            "No subtitle files found near this video.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        files.forEach { f ->
+                            PanelOptionRow(
+                                title = f.name,
+                                subtitle = "${f.extension.uppercase()} file",
+                                selected = false,
+                                onClick = { onPick(Uri.fromFile(f)) }
+                            )
+                        }
+                    }
+                }
+
+                PremiumButton(
+                    text = "Browse file manager",
+                    onClick = onBrowse,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
     }
 }

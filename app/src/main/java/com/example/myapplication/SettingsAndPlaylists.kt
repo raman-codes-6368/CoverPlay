@@ -110,7 +110,7 @@ private const val KEY_SUBTLE_LOCK_TIMER   = "subtle_lock_timer"
 private const val KEY_SHOW_SPLASH         = "show_splash"
 
 private const val DEVELOPER_NAME      = "Raman Singh"
-private const val DEVELOPER_UPI_ID    = "7982360571@fam"
+private const val DEVELOPER_UPI_ID    = "raman6369@fam"
 private const val DEVELOPER_IMAGE_URL = "https://github.com/raman-codes-6368.png"
 
 private fun buildUpiPayString(payeeUpiId: String, payeeName: String): String {
@@ -758,17 +758,17 @@ fun SettingsScreen(onClearHistory: () -> Unit, onReplayAppTour: () -> Unit = {})
                         SettingsPage.ABOUT_APP -> {
                             if (shouldShow("App Information") || shouldShow("Version") || shouldShow("For Feedback") || shouldShow("Check for Updates")) {
                                 settingsCard("App Information") {
-                                    if (shouldShow("Version", "2.4.0")) {
+                                    if (shouldShow("Version", "3.0.5")) {
                                         item {
                                             Box(
                                                 modifier = Modifier.easterEggTaps(7) {
-                                                    showSecret(context, "🛠️ Developer mode unlocked… CoverPlay v2.4.0")
+                                                    showSecret(context, "🛠️ Developer mode unlocked… CoverPlay v3.0.5")
                                                 }
                                             ) {
                                                 SettingsInfoRow(
                                                     icon = painterResource(R.drawable.ic_info_custom),
                                                     label = "Version",
-                                                    value = "2.4.0"
+                                                    value = "3.0.5"
                                                 )
                                             }
                                         }
@@ -794,7 +794,7 @@ fun SettingsScreen(onClearHistory: () -> Unit, onReplayAppTour: () -> Unit = {})
                                             SettingsUpdateRow(
                                                 icon = painterResource(R.drawable.ic_updates),
                                                 label = "Check for Updates",
-                                                status = "v2.4.0 (Latest)",
+                                                status = "v3.0.5 (Latest)",
                                                 onClick = {
                                                     android.widget.Toast.makeText(context, Quips.update(), android.widget.Toast.LENGTH_SHORT).show()
                                                 }
@@ -1308,10 +1308,40 @@ fun DeveloperPremiumCard(context: Context, onViewGithub: () -> Unit) {
                 color = accent,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // GitHub: one clean full-width row (icon tile, title + handle, arrow)
+            Spacer(modifier = Modifier.height(8.dp))
             val ui = LocalAppUiSettings.current
+            val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+            val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+            Surface(
+                onClick = {
+                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(DEVELOPER_UPI_ID))
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    android.widget.Toast.makeText(context, "UPI ID copied: $DEVELOPER_UPI_ID", android.widget.Toast.LENGTH_SHORT).show()
+                },
+                shape = CircleShape,
+                color = Color.White.copy(alpha = 0.08f),
+                border = BorderStroke(1.dp, ui.palette.outlineFaint),
+                modifier = Modifier.clip(CircleShape)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        DEVELOPER_UPI_ID,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = ui.palette.textPrimary
+                    )
+                    Icon(
+                        imageVector = Icons.Rounded.ContentCopy,
+                        contentDescription = "Copy UPI ID",
+                        tint = ui.palette.textSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
             val rowShape = RoundedCornerShape(20.dp)
             val ghInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
             val ghPressed by ghInteraction.collectIsPressedAsState()
@@ -2126,7 +2156,7 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
             Spacer(modifier = Modifier.width(18.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = formatDate(video.dateAdded),
+                    text = formatFileName(video.name),
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                     color = LocalAppUiSettings.current.palette.textPrimary,
                     maxLines = 1,
@@ -2134,7 +2164,7 @@ private fun PlaylistVideoRow(video: VideoFile, onClick: () -> Unit, onRemove: ()
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = formatFileName(video.name),
+                    text = "${formatSize(video.size)} · ${formatDate(video.dateAdded)}",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
                     color = LocalAppUiSettings.current.palette.textSecondary,
                     maxLines = 1,

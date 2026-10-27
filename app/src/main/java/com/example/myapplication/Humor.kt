@@ -742,7 +742,7 @@ object Quips {
         SettingsPage.GESTURES -> "Swipe right on good settings."
         SettingsPage.PRIVACY_HISTORY -> "What happens in CoverPlay stays in CoverPlay."
         SettingsPage.ABOUT_DEVELOPER -> "Made with caffeine, curiosity and a suspicious amount of Kotlin."
-        SettingsPage.ABOUT_APP -> "Version 3.0.0: now with 12% more easter eggs. (Unverified.)"
+        SettingsPage.ABOUT_APP -> "Version 3.0.5: now with 12% more easter eggs. (Unverified.)"
     }
 
     fun empty(title: String): String = pick(
@@ -792,7 +792,7 @@ object Quips {
     }
 
     private val updates = listOf(
-        "CoverPlay v3.0.0 is up to date. Faster than your Wi-Fi.",
+        "CoverPlay v3.0.5 is up to date. Faster than your Wi-Fi.",
         "Latest version confirmed. Nothing to download, go watch something.",
         "You're current. Unlike your watchlist."
     )

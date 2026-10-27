@@ -742,6 +742,95 @@ private fun DrawScope.silk(baseY: Float, thick: Float, amp: Float, freq: Float, 
     }
 }
 
+// ── Per-theme signature motion (each is one quiet layer; all loops are seamless) ─────────────
+
+/** Midnight Iris: concentric ripples spreading from the flower, like a drop on still water. */
+private fun DrawScope.irisRipples(t: Float, c: Color, s: Float, px: Float) {
+    val cx = size.width * 0.96f
+    val cy = size.height * 0.08f
+    for (i in 0 until 3) {
+        val ph = (t * 3f + i / 3f) % 1f
+        val fade = (1f - ph) * (1f - ph)
+        drawCircle(c.copy(alpha = 0.10f * fade * s), radius = size.width * (0.12f + 0.85f * ph), center = Offset(cx, cy), style = Stroke(1.3f * px))
+    }
+}
+
+/** Ultraviolet Dusk: two parallax star layers drifting sideways at different speeds. */
+private fun DrawScope.nebulaDrift(t1: Float, t2: Float, c: Float, speck: Color, s: Float, px: Float) {
+    val w = size.width
+    val h = size.height
+    for (i in 0 until 12) {
+        val x = ((hash01(i, 71f) * w - t2 * w) % w + w) % w
+        val tw = 0.5f + 0.5f * sin(c + i * 1.3f)
+        drawCircle(speck.copy(alpha = (0.04f + 0.14f * tw) * s), 0.7f * px, Offset(x, h * (0.05f + 0.80f * hash01(i, 72f))))
+    }
+    for (i in 0 until 7) {
+        val x = ((hash01(i, 81f) * w - t1 * w * 2f) % w + w) % w
+        val tw = 0.5f + 0.5f * sin(c * 2f + i * 2.1f)
+        mote(x, h * (0.08f + 0.70f * hash01(i, 82f)), 1.1f * px, speck.copy(alpha = (0.05f + 0.16f * tw) * s))
+    }
+}
+
+/** Velvet Rose: a stage spotlight swinging like a pendulum, with a soft pool of light where it lands. */
+private fun DrawScope.velvetSpot(b: Float, color: Color, s: Float) {
+    val w = size.width
+    val h = size.height
+    val ax = w * 0.5f
+    val bx = w * 0.5f + sin(b) * w * 0.34f
+    val half = w * 0.17f
+    val p = Path().apply {
+        moveTo(ax - w * 0.015f, -h * 0.02f); lineTo(ax + w * 0.015f, -h * 0.02f)
+        lineTo(bx + half, h); lineTo(bx - half, h); close()
+    }
+    drawPath(p, Brush.verticalGradient(0f to color.copy(alpha = 0.075f * s), 0.7f to color.copy(alpha = 0.02f * s), 1f to Color.Transparent))
+    orb(bx, h * 0.97f, w * 0.40f, color.copy(alpha = 0.07f * s))
+}
+
+/** Solar Ember: slowly turning sun rays plus faint heat-haze lines rising off the horizon. */
+private fun DrawScope.emberRays(t1: Float, color: Color, s: Float, px: Float) {
+    val w = size.width
+    val h = size.height
+    val sun = Offset(w * 0.5f, h)
+    val len = h * 1.25f
+    val spread = len * 0.085f
+    val brush = Brush.radialGradient(0f to color.copy(alpha = 0.075f * s), 1f to Color.Transparent, center = sun, radius = len)
+    for (i in 0 until 9) {
+        rotate(t1 * 360f / 9f + i * 40f, sun) {
+            val p = Path().apply { moveTo(sun.x, sun.y); lineTo(sun.x - spread, sun.y - len); lineTo(sun.x + spread, sun.y - len); close() }
+            drawPath(p, brush)
+        }
+    }
+    val tau = 2f * PI.toFloat()
+    for (i in 0 until 3) {
+        val ph = (t1 * 2f + i / 3f) % 1f
+        val y0 = h * (0.96f - 0.55f * ph)
+        val path = Path()
+        for (k in 0..20) {
+            val x = w * k / 20f
+            val y = y0 + sin(x / w * tau * 3f + ph * tau * 2f) * 3.5f * px
+            if (k == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(path, color.copy(alpha = 0.06f * sin(ph * PI.toFloat()) * s), style = Stroke(1.1f * px))
+    }
+}
+
+/** Arctic Aurora: a dark sea at the bottom catching shimmering glints of the lights above. */
+private fun DrawScope.auroraSea(c: Float, a: Float, color: Color, s: Float, px: Float) {
+    val w = size.width
+    val h = size.height
+    drawRect(
+        Brush.verticalGradient(0f to Color.Transparent, 1f to color.copy(alpha = 0.05f * s), startY = h * 0.84f, endY = h),
+        topLeft = Offset(0f, h * 0.84f), size = Size(w, h * 0.16f)
+    )
+    for (i in 0 until 20) {
+        val tw = 0.5f + 0.5f * sin(c * (1f + i % 2) + i * 1.9f)
+        val x = hash01(i, 91f) * w + sin(a + i) * w * 0.01f
+        val y = h * (0.86f + 0.13f * hash01(i, 92f))
+        val len = w * (0.02f + 0.05f * hash01(i, 93f))
+        drawLine(color.copy(alpha = 0.16f * tw * s), Offset(x - len, y), Offset(x + len, y), strokeWidth = 1.1f * px, cap = StrokeCap.Round)
+    }
+}
+
 private data class SceneSpec(
     val scene: BackdropScene,
     val accent: Color,
@@ -783,151 +872,153 @@ private fun ThemeSceneLayer(
             // All multipliers are integers, so every loop is seamless.
 
             when (scene) {
-                // ── MIDNIGHT IRIS: indigo pools drifting like ink in water, one ghost-faint flower, dew motes
+                // ── MIDNIGHT IRIS: indigo pools drifting like ink in water, ghost-faint flower, glowing dew motes
                 BackdropScene.BLOOM -> {
-                    fluidBlob(w * (0.25f + 0.12f * sin(a)), h * (0.18f + 0.07f * cos(b)), w * 0.95f * br, 1.25f + 0.15f * sin(b), 0.85f, sin(a) * 30f, accent.copy(alpha = 0.20f * s))
-                    fluidBlob(w * (0.85f + 0.08f * cos(a)), h * (0.55f + 0.08f * sin(b)), w * 0.80f, 0.90f, 1.30f + 0.15f * cos(a), -20f + cos(b) * 25f, secondary.copy(alpha = 0.11f * s))
-                    fluidBlob(w * (0.30f + 0.10f * sin(b)), h * (0.92f + 0.04f * cos(a)), w * 0.90f, 1.40f, 0.80f, cos(a) * 20f, highlight.copy(alpha = 0.08f * s))
-                    silk(h * 0.30f, h * 0.16f, h * 0.035f, 1.2f, a, -8f, highlight.copy(alpha = 0.05f * s))
-                    silk(h * 0.62f, h * 0.18f, h * 0.040f, 0.9f, -b + 1f, 6f, accent.copy(alpha = 0.07f * s))
-                    petals(w * 0.96f, h * 0.08f, w * 0.62f, t1.value * 360f / 7f, 7, accent.copy(alpha = 0.01f * s), highlight.copy(alpha = 0.055f * s))
-                    petals(w * 0.02f, h * 0.97f, w * 0.50f, -t2.value * 360f / 9f, 9, accent.copy(alpha = 0.008f * s), secondary.copy(alpha = 0.05f * s))
-                    for (i in 0 until 6) {
-                        val ph = (t1.value + hash01(i, 41f)) % 1f
-                        val x = w * hash01(i, 42f) + sin(ph * tau + i * 2f) * w * 0.03f
+                    irisRipples(t1.value, highlight, s, px)
+                    fluidBlob(w * (0.25f + 0.12f * sin(a)), h * (0.18f + 0.07f * cos(b)), w * 0.95f * br, 1.25f + 0.15f * sin(b), 0.85f, sin(a) * 30f, accent.copy(alpha = 0.24f * s))
+                    fluidBlob(w * (0.85f + 0.08f * cos(a)), h * (0.55f + 0.08f * sin(b)), w * 0.80f, 0.90f, 1.30f + 0.15f * cos(a), -20f + cos(b) * 25f, secondary.copy(alpha = 0.14f * s))
+                    fluidBlob(w * (0.30f + 0.10f * sin(b)), h * (0.92f + 0.04f * cos(a)), w * 0.90f, 1.40f, 0.80f, cos(a) * 20f, highlight.copy(alpha = 0.10f * s))
+                    silk(h * 0.30f, h * 0.16f, h * 0.035f, 1.2f, a, -8f, highlight.copy(alpha = 0.07f * s))
+                    silk(h * 0.62f, h * 0.18f, h * 0.040f, 0.9f, -b + 1f, 6f, accent.copy(alpha = 0.09f * s))
+                    petals(w * 0.96f, h * 0.08f, w * 0.62f, t1.value * 360f / 7f, 7, accent.copy(alpha = 0.015f * s), highlight.copy(alpha = 0.07f * s))
+                    petals(w * 0.02f, h * 0.97f, w * 0.50f, -t2.value * 360f / 9f, 9, accent.copy(alpha = 0.012f * s), secondary.copy(alpha = 0.06f * s))
+                    for (i in 0 until 12) {
+                        val ph = (t1.value * (1f + (i % 3) * 0.2f) + hash01(i, 41f)) % 1f
+                        val x = w * hash01(i, 42f) + sin(ph * tau * 2f + i * 1.5f) * w * 0.04f
                         val y = h * (1.02f - 1.04f * ph)
-                        mote(x, y, (1.2f + hash01(i, 43f) * 1.6f) * px, highlight.copy(alpha = 0.20f * s * sin(ph * PI.toFloat())))
+                        mote(x, y, (1.2f + hash01(i, 43f) * 2.0f) * px, highlight.copy(alpha = 0.28f * s * sin(ph * PI.toFloat())))
                     }
                 }
 
-                // ── ULTRAVIOLET DUSK: violet nebula currents, a faint galactic band, sparse twinkling stars
+                // ── ULTRAVIOLET DUSK: violet nebula currents, galactic band, twinkling stars & shooting stars
                 BackdropScene.NEBULA -> {
-                    fluidBlob(w * (0.20f + 0.12f * sin(a)), h * (0.16f + 0.06f * cos(b)), w * 0.95f * br, 1.3f, 0.85f + 0.1f * sin(b), -25f + sin(a) * 25f, accent.copy(alpha = 0.22f * s))
-                    fluidBlob(w * (0.88f + 0.06f * cos(b)), h * (0.80f + 0.05f * sin(a)), w * 0.90f, 1.2f, 0.9f, 20f + cos(a) * 20f, secondary.copy(alpha = 0.13f * s))
-                    fluidBlob(w * (0.55f + 0.10f * sin(b)), h * (0.48f + 0.06f * cos(a)), w * 0.70f, 1.5f, 0.7f, -30f, highlight.copy(alpha = 0.05f * s))
-                    silk(h * 0.36f, h * 0.20f, h * 0.030f, 1.1f, a, -24f, highlight.copy(alpha = 0.06f * s))
-                    silk(h * 0.50f, h * 0.14f, h * 0.025f, 1.0f, -b, -24f, secondary.copy(alpha = 0.05f * s))
-                    for (i in 0 until 16) {
+                    nebulaDrift(t1.value, t2.value, c, speck, s, px)
+                    fluidBlob(w * (0.20f + 0.12f * sin(a)), h * (0.16f + 0.06f * cos(b)), w * 0.95f * br, 1.3f, 0.85f + 0.1f * sin(b), -25f + sin(a) * 25f, accent.copy(alpha = 0.26f * s))
+                    fluidBlob(w * (0.88f + 0.06f * cos(b)), h * (0.80f + 0.05f * sin(a)), w * 0.90f, 1.2f, 0.9f, 20f + cos(a) * 20f, secondary.copy(alpha = 0.16f * s))
+                    fluidBlob(w * (0.55f + 0.10f * sin(b)), h * (0.48f + 0.06f * cos(a)), w * 0.70f, 1.5f, 0.7f, -30f, highlight.copy(alpha = 0.08f * s))
+                    silk(h * 0.36f, h * 0.20f, h * 0.030f, 1.1f, a, -24f, highlight.copy(alpha = 0.08f * s))
+                    silk(h * 0.50f, h * 0.14f, h * 0.025f, 1.0f, -b, -24f, secondary.copy(alpha = 0.07f * s))
+                    for (i in 0 until 28) {
                         val tw = 0.5f + 0.5f * sin(c + i * 1.7f)
                         drawCircle(
-                            color = speck.copy(alpha = (0.05f + 0.22f * tw) * s),
-                            radius = (0.6f + hash01(i, 3f) * 0.9f) * px,
+                            color = speck.copy(alpha = (0.08f + 0.28f * tw) * s),
+                            radius = (0.6f + hash01(i, 3f) * 1.2f) * px,
                             center = Offset(hash01(i, 1f) * w, hash01(i, 2f) * h)
                         )
                     }
                     shootingStar(t3.value, 0, speck, px)
-                    shootingStar((t3.value + 0.5f) % 1f, 1, speck, px)
-                    // a faint constellation that breathes in and out
+                    shootingStar((t3.value + 0.4f) % 1f, 1, speck, px)
+                    shootingStar((t3.value + 0.7f) % 1f, 2, speck, px)
                     var lx = 0f
                     var ly = 0f
-                    for (i in 0 until 5) {
-                        val x = w * (0.55f + 0.38f * hash01(i, 61f))
-                        val y = h * (0.05f + 0.24f * hash01(i, 62f))
-                        if (i > 0) drawLine(speck.copy(alpha = (0.04f + 0.07f * (0.5f + 0.5f * sin(c + i))) * s), Offset(lx, ly), Offset(x, y), strokeWidth = 0.8f * px)
-                        drawCircle(speck.copy(alpha = 0.32f * s), 1.5f * px, Offset(x, y))
+                    for (i in 0 until 6) {
+                        val x = w * (0.50f + 0.42f * hash01(i, 61f))
+                        val y = h * (0.05f + 0.28f * hash01(i, 62f))
+                        if (i > 0) drawLine(speck.copy(alpha = (0.05f + 0.09f * (0.5f + 0.5f * sin(c + i))) * s), Offset(lx, ly), Offset(x, y), strokeWidth = 1.0f * px)
+                        drawCircle(speck.copy(alpha = 0.40f * s), 1.8f * px, Offset(x, y))
                         lx = x; ly = y
                     }
                 }
 
-                // ── VELVET ROSE: crimson silk folds and a slow sweep of stage light, a few drifting petals
+                // ── VELVET ROSE: crimson silk folds, sweeping spotlight, fluttering rose petals
                 BackdropScene.VELVET -> {
-                    fluidBlob(w * (0.05f + 0.08f * sin(a)), h * (0.95f + 0.04f * cos(b)), w * 1.10f * br, 1.3f, 0.9f, -15f + sin(b) * 20f, accent.copy(alpha = 0.26f * s))
-                    fluidBlob(w * (0.95f + 0.05f * cos(a)), h * (0.12f + 0.06f * sin(b)), w * 0.90f, 1.1f, 1.2f, 25f + cos(a) * 20f, secondary.copy(alpha = 0.14f * s))
-                    fluidBlob(w * (0.55f + 0.12f * sin(b)), h * (0.55f + 0.06f * cos(a)), w * 0.75f, 1.4f, 0.8f, 10f, highlight.copy(alpha = 0.04f * s))
-                    silk(h * 0.28f, h * 0.20f, h * 0.045f, 0.9f, a, 12f, accent.copy(alpha = 0.09f * s))
-                    silk(h * 0.62f, h * 0.22f, h * 0.050f, 0.8f, -b + 2f, -10f, secondary.copy(alpha = 0.07f * s))
-                    // velvet drapes swaying in the stage light
-                    val folds = 7
-                    val fw = w / folds * 0.9f
+                    velvetSpot(b, highlight, s)
+                    fluidBlob(w * (0.05f + 0.08f * sin(a)), h * (0.95f + 0.04f * cos(b)), w * 1.10f * br, 1.3f, 0.9f, -15f + sin(b) * 20f, accent.copy(alpha = 0.30f * s))
+                    fluidBlob(w * (0.95f + 0.05f * cos(a)), h * (0.12f + 0.06f * sin(b)), w * 0.90f, 1.1f, 1.2f, 25f + cos(a) * 20f, secondary.copy(alpha = 0.18f * s))
+                    fluidBlob(w * (0.55f + 0.12f * sin(b)), h * (0.55f + 0.06f * cos(a)), w * 0.75f, 1.4f, 0.8f, 10f, highlight.copy(alpha = 0.06f * s))
+                    silk(h * 0.28f, h * 0.20f, h * 0.045f, 0.9f, a, 12f, accent.copy(alpha = 0.11f * s))
+                    silk(h * 0.62f, h * 0.22f, h * 0.050f, 0.8f, -b + 2f, -10f, secondary.copy(alpha = 0.09f * s))
+                    val folds = 8
+                    val fw = w / folds * 0.95f
                     for (k in 0 until folds) {
-                        val fx = w * (k + 0.5f) / folds + sin(a + k * 0.8f) * w * 0.015f
+                        val fx = w * (k + 0.5f) / folds + sin(a + k * 0.8f) * w * 0.018f
                         drawRect(
                             Brush.horizontalGradient(
                                 0f to Color.Transparent,
-                                0.5f to accent.copy(alpha = (0.035f + 0.03f * (0.5f + 0.5f * sin(b + k * 1.3f))) * s),
+                                0.5f to accent.copy(alpha = (0.045f + 0.035f * (0.5f + 0.5f * sin(b + k * 1.3f))) * s),
                                 1f to Color.Transparent,
                                 startX = fx - fw / 2f, endX = fx + fw / 2f
                             ),
                             topLeft = Offset(fx - fw / 2f, 0f), size = Size(fw, h)
                         )
                     }
-                    // slow sweep of stage light
                     val sweepX = (t2.value * 1.6f - 0.3f) * w
-                    val half = w * 0.16f
+                    val half = w * 0.18f
                     rotate(18f, Offset(sweepX, h / 2f)) {
                         drawRect(
                             Brush.horizontalGradient(
-                                0f to Color.Transparent, 0.5f to highlight.copy(alpha = 0.06f * s), 1f to Color.Transparent,
+                                0f to Color.Transparent, 0.5f to highlight.copy(alpha = 0.08f * s), 1f to Color.Transparent,
                                 startX = sweepX - half, endX = sweepX + half
                             ),
                             topLeft = Offset(sweepX - half, -h * 0.2f), size = Size(half * 2f, h * 1.4f)
                         )
                     }
-                    for (i in 0 until 4) {
-                        val ph = (t2.value + hash01(i, 31f)) % 1f
-                        val x = w * hash01(i, 32f) + sin(ph * tau * 2f + i) * w * 0.05f
+                    for (i in 0 until 10) {
+                        val ph = (t2.value * (1f + (i % 2) * 0.3f) + hash01(i, 31f)) % 1f
+                        val x = w * hash01(i, 32f) + sin(ph * tau * 2f + i * 1.2f) * w * 0.06f
                         val y = h * (-0.05f + 1.1f * ph)
-                        val r = (5f + hash01(i, 33f) * 4f) * px
-                        rotate(ph * 540f + i * 50f, Offset(x, y)) {
-                            drawOval(highlight.copy(alpha = (sin(ph * PI.toFloat()) * 0.20f * s).coerceIn(0f, 1f)), Offset(x - r * 0.6f, y - r), Size(r * 1.2f, r * 2f))
+                        val r = (5f + hash01(i, 33f) * 5f) * px
+                        rotate(ph * 540f + i * 40f, Offset(x, y)) {
+                            drawOval(highlight.copy(alpha = (sin(ph * PI.toFloat()) * 0.26f * s).coerceIn(0f, 1f)), Offset(x - r * 0.6f, y - r), Size(r * 1.2f, r * 2f))
                         }
                     }
                 }
 
-                // ── SOLAR EMBER: a warm horizon glow breathing below flowing heat ribbons, faint embers
+                // ── SOLAR EMBER: warm horizon glow breathing below heat ribbons & rising embers
                 BackdropScene.HORIZON -> {
+                    emberRays(t1.value, highlight, s, px)
                     val pulse = 0.5f + 0.5f * sin(c)
-                    fluidBlob(w * (0.50f + 0.10f * sin(a)), h * (1.00f + 0.02f * cos(b)), w * (1.10f + 0.05f * pulse) * br, 1.5f, 0.75f, sin(b) * 8f, accent.copy(alpha = 0.26f * s))
-                    fluidBlob(w * (0.50f + 0.06f * cos(a)), h * 0.98f, w * (0.45f + 0.04f * pulse), 1.3f, 0.8f, 0f, highlight.copy(alpha = 0.12f * s))
-                    fluidBlob(w * (0.12f + 0.08f * sin(b)), h * (0.12f + 0.05f * cos(a)), w * 0.80f, 1.2f, 1.0f, 20f, secondary.copy(alpha = 0.09f * s))
-                    silk(h * 0.58f, h * 0.18f, h * 0.030f, 1.3f, a, -6f, accent.copy(alpha = 0.07f * s))
-                    silk(h * 0.76f, h * 0.16f, h * 0.025f, 1.0f, -b + 1f, 5f, highlight.copy(alpha = 0.05f * s))
-                    // a low sun with slow heat rings radiating from the horizon
+                    fluidBlob(w * (0.50f + 0.10f * sin(a)), h * (1.00f + 0.02f * cos(b)), w * (1.10f + 0.05f * pulse) * br, 1.5f, 0.75f, sin(b) * 8f, accent.copy(alpha = 0.30f * s))
+                    fluidBlob(w * (0.50f + 0.06f * cos(a)), h * 0.98f, w * (0.45f + 0.04f * pulse), 1.3f, 0.8f, 0f, highlight.copy(alpha = 0.15f * s))
+                    fluidBlob(w * (0.12f + 0.08f * sin(b)), h * (0.12f + 0.05f * cos(a)), w * 0.80f, 1.2f, 1.0f, 20f, secondary.copy(alpha = 0.12f * s))
+                    silk(h * 0.58f, h * 0.18f, h * 0.030f, 1.3f, a, -6f, accent.copy(alpha = 0.09f * s))
+                    silk(h * 0.76f, h * 0.16f, h * 0.025f, 1.0f, -b + 1f, 5f, highlight.copy(alpha = 0.07f * s))
                     val sunY = h * (1.0f - 0.02f * sin(a))
                     val sunR = w * (0.22f + 0.01f * pulse)
                     drawCircle(
                         Brush.radialGradient(
-                            0f to highlight.copy(alpha = 0.16f * s), 0.55f to accent.copy(alpha = 0.10f * s), 1f to Color.Transparent,
+                            0f to highlight.copy(alpha = 0.20f * s), 0.55f to accent.copy(alpha = 0.14f * s), 1f to Color.Transparent,
                             center = Offset(w * 0.5f, sunY), radius = sunR * 1.8f
                         ),
                         radius = sunR * 1.8f, center = Offset(w * 0.5f, sunY)
                     )
-                    for (i in 0 until 3) {
-                        val ph = (t1.value + i / 3f) % 1f
-                        drawCircle(highlight.copy(alpha = (1f - ph) * 0.07f * s), radius = sunR * (1f + ph * 1.6f), center = Offset(w * 0.5f, sunY), style = Stroke(1.2f * px))
+                    for (i in 0 until 4) {
+                        val ph = (t1.value + i / 4f) % 1f
+                        drawCircle(highlight.copy(alpha = (1f - ph) * 0.09f * s), radius = sunR * (1f + ph * 1.6f), center = Offset(w * 0.5f, sunY), style = Stroke(1.2f * px))
                     }
-                    for (i in 0 until 7) {
-                        val phase = (t1.value * (1f + (i % 2)) + hash01(i, 4f)) % 1f
-                        val x = hash01(i, 5f) * w + sin(phase * tau + i) * w * 0.03f
+                    for (i in 0 until 16) {
+                        val phase = (t1.value * (1f + (i % 3) * 0.25f) + hash01(i, 4f)) % 1f
+                        val x = hash01(i, 5f) * w + sin(phase * tau + i * 1.4f) * w * 0.04f
                         val flick = 0.65f + 0.35f * sin(c * 2f + i * 1.3f)
-                        mote(x, h * (1.02f - phase), (0.9f + hash01(i, 6f) * 1.2f) * px,
-                            highlight.copy(alpha = (sin(phase * PI.toFloat()) * 0.30f * flick * s).coerceIn(0f, 1f)))
+                        mote(x, h * (1.02f - phase), (0.9f + hash01(i, 6f) * 1.6f) * px,
+                            highlight.copy(alpha = (sin(phase * PI.toFloat()) * 0.38f * flick * s).coerceIn(0f, 1f)))
                     }
                 }
 
-                // ── ARCTIC AURORA: slow teal light curtains rippling over cool pools, a few polar stars
+                // ── ARCTIC AURORA: teal & cyan curtains rippling over glacial sea, sparkling polar stars
                 BackdropScene.AURORA -> {
-                    fluidBlob(w * (0.50f + 0.14f * sin(a)), h * (-0.04f + 0.04f * cos(b)), w * 1.00f * br, 1.5f, 0.8f, sin(b) * 15f, accent.copy(alpha = 0.20f * s))
-                    fluidBlob(w * (0.85f + 0.06f * cos(b)), h * (0.85f + 0.05f * sin(a)), w * 0.85f, 1.2f, 1.0f, -20f + cos(a) * 15f, secondary.copy(alpha = 0.13f * s))
-                    fluidBlob(w * (0.15f + 0.08f * sin(b)), h * (0.60f + 0.05f * cos(a)), w * 0.70f, 1.1f, 1.2f, 15f, highlight.copy(alpha = 0.05f * s))
-                    silk(h * 0.14f, h * 0.22f, h * 0.045f, 1.3f, a, -4f, accent.copy(alpha = 0.10f * s))
-                    silk(h * 0.30f, h * 0.20f, h * 0.040f, 1.0f, -b + 1.5f, 5f, secondary.copy(alpha = 0.08f * s))
-                    silk(h * 0.22f, h * 0.12f, h * 0.030f, 2f, -a, 3f, highlight.copy(alpha = 0.05f * s))
-                    val cols = 14
-                    val cw = w / cols * 1.1f
+                    auroraSea(c, a, highlight, s, px)
+                    fluidBlob(w * (0.50f + 0.14f * sin(a)), h * (-0.04f + 0.04f * cos(b)), w * 1.00f * br, 1.5f, 0.8f, sin(b) * 15f, accent.copy(alpha = 0.24f * s))
+                    fluidBlob(w * (0.85f + 0.06f * cos(b)), h * (0.85f + 0.05f * sin(a)), w * 0.85f, 1.2f, 1.0f, -20f + cos(a) * 15f, secondary.copy(alpha = 0.16f * s))
+                    fluidBlob(w * (0.15f + 0.08f * sin(b)), h * (0.60f + 0.05f * cos(a)), w * 0.70f, 1.1f, 1.2f, 15f, highlight.copy(alpha = 0.08f * s))
+                    silk(h * 0.14f, h * 0.22f, h * 0.045f, 1.3f, a, -4f, accent.copy(alpha = 0.12f * s))
+                    silk(h * 0.30f, h * 0.20f, h * 0.040f, 1.0f, -b + 1.5f, 5f, secondary.copy(alpha = 0.10f * s))
+                    silk(h * 0.22f, h * 0.12f, h * 0.030f, 2f, -a, 3f, highlight.copy(alpha = 0.07f * s))
+                    val cols = 16
+                    val cw = w / cols * 1.15f
                     for (k in 0 until cols) {
                         val x = w * (k + 0.5f) / cols
                         val flick = 0.6f + 0.4f * sin(c + k * 0.9f)
-                        val top = h * 0.10f + sin(a + k * 0.7f) * h * 0.02f
-                        val len = h * (0.20f + 0.06f * sin(b + k))
+                        val top = h * 0.08f + sin(a + k * 0.7f) * h * 0.025f
+                        val len = h * (0.24f + 0.08f * sin(b + k * 1.2f))
                         drawRect(
-                            Brush.verticalGradient(0f to Color.Transparent, 0.6f to secondary.copy(alpha = 0.07f * s * flick), 1f to Color.Transparent, startY = top, endY = top + len),
+                            Brush.verticalGradient(0f to Color.Transparent, 0.5f to secondary.copy(alpha = 0.09f * s * flick), 0.9f to highlight.copy(alpha = 0.04f * s * flick), 1f to Color.Transparent, startY = top, endY = top + len),
                             topLeft = Offset(x - cw / 2f, top), size = Size(cw, len)
                         )
                     }
-                    for (i in 0 until 9) {
+                    for (i in 0 until 18) {
                         val tw = 0.5f + 0.5f * sin(c + i * 2.1f)
-                        drawCircle(speck.copy(alpha = (0.05f + 0.22f * tw) * s), (0.6f + hash01(i, 7f) * 0.8f) * px, Offset(hash01(i, 8f) * w, hash01(i, 9f) * h * 0.45f))
+                        drawCircle(speck.copy(alpha = (0.08f + 0.28f * tw) * s), (0.6f + hash01(i, 7f) * 1.0f) * px, Offset(hash01(i, 8f) * w, hash01(i, 9f) * h * 0.48f))
                     }
                 }
             }

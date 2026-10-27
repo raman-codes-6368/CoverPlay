@@ -150,28 +150,43 @@ fun HierarchyDurationBadge(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-class VideoThumbnailFetcher(private val uri: Uri, private val options: Options, private val context: Context) : Fetcher {
+class VideoThumbnailFetcher(private val data: Any, private val options: Options, private val context: Context) : Fetcher {
     override suspend fun fetch(): FetchResult? {
-        return try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val width = options.size.width.pxOrElse { 512 }; val height = options.size.height.pxOrElse { 320 }
-                val bitmap = context.contentResolver.loadThumbnail(uri, Size(width, height), null)
-                DrawableResult(drawable = bitmap.toDrawable(context.resources), isSampled = true, dataSource = DataSource.DISK)
-            } else null
-        } catch (e: Exception) { null }
-    }
-    class Factory(private val context: Context) : Fetcher.Factory<Uri> {
-        override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || data.scheme != "content") return null
-
-            // If the request specifically asks for a frame (scrubbing), let
-            // the real VideoFrameDecoder handle it instead of the system
-            // loadThumbnail() which only gives us frame 0.
-            if (options.parameters.values().keys.any { it.contains("video_frame") }) {
-                return null
+        if (data is Uri && data.scheme == "content" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val width = options.size.width.pxOrElse { 512 }
+                val height = options.size.height.pxOrElse { 320 }
+                val bitmap = context.contentResolver.loadThumbnail(data, Size(width, height), null)
+                return DrawableResult(drawable = bitmap.toDrawable(context.resources), isSampled = true, dataSource = DataSource.DISK)
+            } catch (_: Exception) {}
+        }
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            when (data) {
+                is Uri -> retriever.setDataSource(context, data)
+                is String -> retriever.setDataSource(data)
+                is File -> retriever.setDataSource(data.absolutePath)
+                else -> return null
             }
+            var bitmap = retriever.getFrameAtTime(1_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            if (bitmap == null) bitmap = retriever.getFrameAtTime(5_000_000, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            if (bitmap == null) bitmap = retriever.getFrameAtTime(-1)
+            if (bitmap != null) {
+                return DrawableResult(drawable = bitmap.toDrawable(context.resources), isSampled = true, dataSource = DataSource.DISK)
+            }
+        } catch (_: Exception) {
+        } finally {
+            try { retriever.release() } catch (_: Exception) {}
+        }
+        return null
+    }
 
-            return VideoThumbnailFetcher(data, options, context)
+    class Factory(private val context: Context) : Fetcher.Factory<Any> {
+        override fun create(data: Any, options: Options, imageLoader: ImageLoader): Fetcher? {
+            if (data is Uri || data is String || data is File) {
+                return VideoThumbnailFetcher(data, options, context)
+            }
+            return null
         }
     }
 }
@@ -251,7 +266,7 @@ fun BottomNavigationBar(
     onScreenSelected: (Screen) -> Unit,
     collapsed: Boolean = false,
     backdrop: BackdropState? = null,
-    hazeState: HazeState? = null
+    hazeState: HazeState? = LocalGlassHaze.current
 ) {
     val tabs = listOf(
         NavItem(Screen.HOME,      "Home",      R.drawable.ic_nav_home_filled,     R.drawable.ic_nav_home_unfilled),
@@ -262,98 +277,137 @@ fun BottomNavigationBar(
     val settings = LocalAppUiSettings.current
     val haptic = LocalHapticFeedback.current
     val accent = settings.accent
+    val isDark = settings.palette.isDark
 
-    val scale by animateFloatAsState(if (collapsed) 0.84f else 1f, spring(0.75f, 350f), label = "navScale")
+    val scale by animateFloatAsState(if (collapsed) 0.88f else 1f, spring(0.80f, 380f), label = "navScale")
     val settingsSelected = currentScreen == Screen.SETTINGS
-    val settingsSel by animateFloatAsState(if (settingsSelected) 1f else 0f, tween(350, easing = FastOutSlowInEasing), label = "setSel")
 
-    Row(
+    Box(
         modifier = Modifier
-            .navigationBarsPadding()
-            .padding(horizontal = 18.dp, vertical = 14.dp)
             .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                transformOrigin = TransformOrigin(0.5f, 1f)
-            },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        // ── Main glass pill (3 tabs) ──
-        NavGlass(Modifier.weight(1f).height(66.dp), CircleShape, backdrop, hazeState, accent) {
-            Row(Modifier.padding(5.dp).fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                tabs.forEach { item ->
-                    val isSelected = when (item.screen) {
-                        Screen.FOLDERS -> currentScreen == Screen.FOLDERS || currentScreen == Screen.FOLDER_VIDEOS
-                        else -> currentScreen == item.screen
-                    }
-                    val weight by animateFloatAsState(if (isSelected) 1.5f else 0.8f, spring(0.85f, 380f), label = "navW")
-                    val selection by animateFloatAsState(if (isSelected) 1f else 0f, tween(350, easing = FastOutSlowInEasing), label = "navSel")
-                    val contentColor by animateColorAsState(if (isSelected) Color.White else settings.palette.textSecondary, tween(350), label = "navC")
-                    val interaction = remember { MutableInteractionSource() }
-                    val pressed by interaction.collectIsPressedAsState()
-                    val pressScale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(0.55f, 520f), label = "navP")
-                    Box(
-                        modifier = Modifier
-                            .weight(weight.coerceAtLeast(0.1f))
-                            .fillMaxHeight()
-                            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
-                            .clip(CircleShape)
-                            .clickable(interactionSource = interaction, indication = null) {
-                                if (!isSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onScreenSelected(item.screen)
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            Modifier.matchParentSize().graphicsLayer { alpha = selection }
-                                .liquidLens(accent)
+            .then(
+                if (hazeState != null) {
+                    Modifier.hazeEffect(state = hazeState) {
+                        style = HazeStyle(
+                            blurRadius = 24.dp,
+                            noiseFactor = 0.01f,
+                            tint = HazeTint(settings.palette.bg.copy(alpha = if (isDark) 0.60f else 0.82f))
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
-                            Icon(
-                                painter = painterResource(if (isSelected) item.filledIcon else item.outlineIcon),
-                                contentDescription = item.label, tint = contentColor,
-                                modifier = Modifier.size(22.dp).graphicsLayer { val sc = 1f + 0.1f * selection; scaleX = sc; scaleY = sc }
+                        progressive = HazeProgressive.verticalGradient(
+                            startIntensity = 0f,
+                            endIntensity = 1f
+                        )
+                    }
+                } else Modifier
+            )
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        settings.palette.bg.copy(alpha = if (isDark) 0.40f else 0.65f),
+                        settings.palette.bg.copy(alpha = if (isDark) 0.88f else 0.96f)
+                    )
+                )
+            ),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Row(
+            modifier = Modifier
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = 18.dp, vertical = 12.dp)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // ── Main Glass Pill (3 Tabs) ──
+            NavGlass(Modifier.weight(1f).height(62.dp), CircleShape, backdrop, hazeState, accent) {
+                Row(Modifier.padding(4.dp).fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    tabs.forEach { item ->
+                        val isSelected = when (item.screen) {
+                            Screen.FOLDERS -> currentScreen == Screen.FOLDERS || currentScreen == Screen.FOLDER_VIDEOS
+                            else -> currentScreen == item.screen
+                        }
+                        val weight by animateFloatAsState(if (isSelected) 1.5f else 0.8f, spring(0.85f, 380f), label = "navW")
+                        val selection by animateFloatAsState(if (isSelected) 1f else 0f, tween(300, easing = FastOutSlowInEasing), label = "navSel")
+                        val contentColor by animateColorAsState(if (isSelected) Color.White else settings.palette.textSecondary, tween(250), label = "navC")
+                        val interaction = remember { MutableInteractionSource() }
+                        val pressed by interaction.collectIsPressedAsState()
+                        val pressScale by animateFloatAsState(if (pressed) 0.92f else 1f, spring(0.55f, 520f), label = "navP")
+
+                        Box(
+                            modifier = Modifier
+                                .weight(weight.coerceAtLeast(0.1f))
+                                .fillMaxHeight()
+                                .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
+                                .clip(CircleShape)
+                                .clickable(interactionSource = interaction, indication = null) {
+                                    if (!isSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onScreenSelected(item.screen)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                Modifier.matchParentSize().graphicsLayer { alpha = selection }
+                                    .liquidLens(accent)
                             )
-                            AnimatedVisibility(
-                                visible = isSelected && !collapsed,
-                                enter = fadeIn(tween(250, delayMillis = 80)) + expandHorizontally(spring(0.85f, 400f)),
-                                exit = fadeOut(tween(120)) + shrinkHorizontally(spring(0.9f, 500f))
-                            ) {
-                                Row {
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(item.label, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
-                                        color = Color.White, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 6.dp)) {
+                                Icon(
+                                    painter = painterResource(if (isSelected) item.filledIcon else item.outlineIcon),
+                                    contentDescription = item.label, tint = contentColor,
+                                    modifier = Modifier.size(22.dp).graphicsLayer { val sc = 1f + 0.08f * selection; scaleX = sc; scaleY = sc }
+                                )
+                                AnimatedVisibility(
+                                    visible = isSelected && !collapsed,
+                                    enter = fadeIn(tween(200, delayMillis = 60)) + expandHorizontally(spring(0.85f, 400f)),
+                                    exit = fadeOut(tween(100)) + shrinkHorizontally(spring(0.9f, 500f))
+                                ) {
+                                    Row {
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = item.label,
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = TextOverflow.Clip
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // ── Detached Settings button (Apple-style) ──
-        val sInteraction = remember { MutableInteractionSource() }
-        val sPressed by sInteraction.collectIsPressedAsState()
-        val sPress by animateFloatAsState(if (sPressed) 0.9f else 1f, spring(0.55f, 520f), label = "setP")
-        NavGlass(
-            Modifier.size(66.dp).graphicsLayer { scaleX = sPress; scaleY = sPress }
-                .clickable(interactionSource = sInteraction, indication = null) {
-                    if (!settingsSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onScreenSelected(Screen.SETTINGS)
-                },
-            CircleShape, backdrop, hazeState, accent
-        ) {
-            Box(
-                Modifier.matchParentSize().graphicsLayer { alpha = settingsSel }.liquidLens(accent)
-            )
-            Icon(
-                painter = painterResource(if (settingsSelected) settingsItem.filledIcon else settingsItem.outlineIcon),
-                contentDescription = "Settings",
-                tint = if (settingsSelected) Color.White else settings.palette.textSecondary,
-                modifier = Modifier.size(24.dp).align(Alignment.Center)
-            )
+            // ── Settings Button ──
+            val sInteraction = remember { MutableInteractionSource() }
+            val sPressed by sInteraction.collectIsPressedAsState()
+            val sPress by animateFloatAsState(if (sPressed) 0.90f else 1f, spring(0.55f, 520f), label = "setP")
+            val settingsSel by animateFloatAsState(if (settingsSelected) 1f else 0f, tween(300, easing = FastOutSlowInEasing), label = "setSel")
+
+            NavGlass(
+                Modifier.size(62.dp).graphicsLayer { scaleX = sPress; scaleY = sPress }
+                    .clickable(interactionSource = sInteraction, indication = null) {
+                        if (!settingsSelected) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onScreenSelected(Screen.SETTINGS)
+                    },
+                CircleShape, backdrop, hazeState, accent
+            ) {
+                Box(
+                    Modifier.matchParentSize().graphicsLayer { alpha = settingsSel }.liquidLens(accent)
+                )
+                Icon(
+                    painter = painterResource(if (settingsSelected) settingsItem.filledIcon else settingsItem.outlineIcon),
+                    contentDescription = "Settings",
+                    tint = if (settingsSelected) Color.White else settings.palette.textSecondary,
+                    modifier = Modifier.size(22.dp).align(Alignment.Center)
+                )
+            }
         }
     }
 }
@@ -1311,6 +1365,7 @@ fun DashboardScreen(
 
                 val heroVideo = if (selectedQuickFilter == "For you" && searchQuery.isEmpty()) filteredVideos.firstOrNull() else null
                 val listVideos = if (heroVideo != null) filteredVideos.drop(1) else filteredVideos
+                val isScrollInProgress = scrollState.isScrollInProgress
                 if (heroVideo != null) {
                     item(key = "suggested_hero_${heroVideo.id}") {
                         SuggestedHero(video = heroVideo, onClick = { onVideoClick(heroVideo) }, onLongClick = { actionVideo = heroVideo })
@@ -1333,21 +1388,25 @@ fun DashboardScreen(
                                     expandedVideoId = if (expandedVideoId == video.id) null else video.id
                                 },
                                 onClick = { onVideoClick(video) },
-                                onLongClick = { actionVideo = video }
+                                onLongClick = { actionVideo = video },
+                                isScrollInProgress = isScrollInProgress
                             )
                         }
                     } else {
-                        item {
-                            FlowRow(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                verticalArrangement = Arrangement.spacedBy(14.dp),
-                                maxItemsInEachRow = 2
+                        items(listVideos.chunked(2), key = { pair -> pair.first().id }) { rowVideos ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 7.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                for (video in listVideos) {
+                                for (video in rowVideos) {
                                     Box(modifier = Modifier.weight(1f)) {
                                         VideoGridItem(video = video, onClick = { onVideoClick(video) }, onLongClick = { actionVideo = video })
                                     }
+                                }
+                                if (rowVideos.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
                         }
@@ -1430,7 +1489,7 @@ fun RecentVideoCard(
             }
             Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    text = remember(video.path, video.name) { formatFileName(video.name) },
+                    text = remember(video.path, video.name) { cardTitle(video) },
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
                     color = settings.palette.textPrimary,
                     maxLines = 1,
@@ -1494,7 +1553,7 @@ fun VideoGridItem(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit
             }
             Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(
-                    text = formatDate(video.dateAdded),
+                    text = remember(video.path, video.name, video.dateAdded) { cardTitle(video) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = LocalAppUiSettings.current.palette.textPrimary,
                     maxLines = 1,
@@ -1502,8 +1561,13 @@ fun VideoGridItem(video: VideoFile, onClick: () -> Unit, onLongClick: () -> Unit
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(2.dp))
+                val isMovie = isMovieOrSeries(video)
                 Text(
-                    text = if (progress > 0f) "${(progress * 100).toInt()}% watched" else formatSize(video.size),
+                    text = if (isMovie) {
+                        if (progress > 0f) "${(progress * 100).toInt()}% watched · ${formatSize(video.size)}" else formatSize(video.size)
+                    } else {
+                        if (progress > 0f) "${(progress * 100).toInt()}% watched · ${formatFileName(video.name)}" else formatFileName(video.name)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = LocalAppUiSettings.current.palette.textSecondary,
                     maxLines = 1,
@@ -1645,26 +1709,26 @@ fun FolderListScreen(
                     ) {
                         if (searchQuery.isEmpty()) {
                             item {
-                                val downloadsCount = remember(allVideos) { allVideos.count { it.path.contains("Download", ignoreCase = true) || it.path.contains("Camera", ignoreCase = true) } }
+                                val downloadsCount = remember(allVideos) { allVideos.count { it.path.contains("download", ignoreCase = true) } }
+                                val cameraCount = remember(allVideos) { allVideos.count { it.path.contains("camera", ignoreCase = true) || it.path.contains("dcim", ignoreCase = true) } }
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     item {
                                         GlassChip(
-                                            onClick = { onFolderClick(VideoFolder("All Media", "/", allVideos.size, "")) },
-                                            selected = true
+                                            onClick = { onFolderClick(VideoFolder("All Media", "/", allVideos.size, "")) }
                                         ) {
                                             Text(
                                                 text = "All",
                                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = Color.White,
+                                                color = LocalAppUiSettings.current.palette.textPrimary,
                                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                             )
                                         }
                                     }
                                     item {
-                                        GlassChip(onClick = { onFolderClick(VideoFolder("Recent Videos", "/recent", allVideos.take(10).size, "")) }) {
+                                        GlassChip(onClick = { onFolderClick(VideoFolder("Recent Videos", "/recent", minOf(allVideos.size, 30), "")) }) {
                                             Text(
                                                 text = "Recent",
                                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
@@ -1675,13 +1739,21 @@ fun FolderListScreen(
                                     }
                                     if (downloadsCount > 0) {
                                         item {
-                                            GlassChip(onClick = {
-                                                val downloadFolder = folders.firstOrNull { it.name.contains("Download", ignoreCase = true) || it.name.contains("Camera", ignoreCase = true) }
-                                                    ?: VideoFolder("Downloads", "/download", downloadsCount, "")
-                                                onFolderClick(downloadFolder)
-                                            }) {
+                                            GlassChip(onClick = { onFolderClick(VideoFolder("Downloads", "/download", downloadsCount, "")) }) {
                                                 Text(
                                                     text = "Downloads",
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                                    color = LocalAppUiSettings.current.palette.textPrimary,
+                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    if (cameraCount > 0) {
+                                        item {
+                                            GlassChip(onClick = { onFolderClick(VideoFolder("Camera", "/camera", cameraCount, "")) }) {
+                                                Text(
+                                                    text = "Camera",
                                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                                     color = LocalAppUiSettings.current.palette.textPrimary,
                                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -1775,6 +1847,41 @@ fun FolderListScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        if (searchQuery.isEmpty()) {
+                            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                                val downloadsCount = remember(allVideos) { allVideos.count { it.path.contains("download", ignoreCase = true) } }
+                                val cameraCount = remember(allVideos) { allVideos.count { it.path.contains("camera", ignoreCase = true) || it.path.contains("dcim", ignoreCase = true) } }
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    item {
+                                        GlassChip(onClick = { onFolderClick(VideoFolder("All Media", "/", allVideos.size, "")) }) {
+                                            Text("All", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                                        }
+                                    }
+                                    item {
+                                        GlassChip(onClick = { onFolderClick(VideoFolder("Recent Videos", "/recent", minOf(allVideos.size, 30), "")) }) {
+                                            Text("Recent", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                                        }
+                                    }
+                                    if (downloadsCount > 0) {
+                                        item {
+                                            GlassChip(onClick = { onFolderClick(VideoFolder("Downloads", "/download", downloadsCount, "")) }) {
+                                                Text("Downloads", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                                            }
+                                        }
+                                    }
+                                    if (cameraCount > 0) {
+                                        item {
+                                            GlassChip(onClick = { onFolderClick(VideoFolder("Camera", "/camera", cameraCount, "")) }) {
+                                                Text("Camera", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = LocalAppUiSettings.current.palette.textPrimary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         items(filteredFolders, key = { it.path }) { folder ->
                             val fVideos = remember(folder.path, allVideos) {
                                 allVideos.filter { File(it.path).parent == folder.path || it.path.startsWith(folder.path) }
@@ -1798,7 +1905,8 @@ fun VideoItem(
     isExpanded: Boolean,
     onToggle: () -> Unit,
     onClick: () -> Unit,
-    onLongClick: () -> Unit = {}
+    onLongClick: () -> Unit = {},
+    isScrollInProgress: Boolean = false
 ) {
     val settings = LocalAppUiSettings.current
     val isDark = settings.palette.isDark
@@ -1829,23 +1937,18 @@ fun VideoItem(
         }
     }
 
-    // One AnimatedContent drives the whole collapsed <-> expanded morph. Before, the shell type
-    // changed (ListRowSurface <-> PremiumCardSurface), which recreated the content so the old
-    // animateContentSize never ran and the card simply popped open.
     AnimatedContent(
         targetState = isExpanded,
         transitionSpec = {
-            val opening = targetState
-            (fadeIn(tween(300, delayMillis = 100, easing = LinearOutSlowInEasing)) +
+            (fadeIn(tween(250, easing = FastOutSlowInEasing)) +
                     scaleIn(
-                        initialScale = if (opening) 0.95f else 0.985f,
-                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 300f),
-                        transformOrigin = TransformOrigin(0.5f, 0f)
+                        initialScale = 0.96f,
+                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 380f)
                     ))
-                .togetherWith(fadeOut(tween(110)))
-                .using(SizeTransform(clip = false) { _, _ ->
-                    spring<androidx.compose.ui.unit.IntSize>(dampingRatio = 0.88f, stiffness = 320f)
-                })
+                .togetherWith(
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                            scaleOut(targetScale = 0.96f, animationSpec = tween(180))
+                )
         },
         label = "videoCardMorph"
     ) { isExpanded ->
@@ -1910,6 +2013,14 @@ fun VideoItem(
                         onDispose { exoPlayer.release(); player = null }
                     }
 
+                    LaunchedEffect(isScrollInProgress, player) {
+                        if (isScrollInProgress) {
+                            player?.pause()
+                        } else {
+                            if (isExpanded) player?.play()
+                        }
+                    }
+
                     Column(modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 14.dp)) {
                         // ── Hero: live preview, soft cinematic fade, title + one quiet caption on the glass ──
                         val heroShape = RoundedCornerShape(18.dp)
@@ -1963,7 +2074,7 @@ fun VideoItem(
                                         }
                                     },
                                     update = { view ->
-                                        view.player = player
+                                        if (view.player != player) view.player = player
                                         view.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                                     },
                                     modifier = Modifier.fillMaxSize().graphicsLayer { alpha = animatedAlpha }
@@ -2000,12 +2111,12 @@ fun VideoItem(
                                 Modifier.align(Alignment.BottomStart).padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
                             ) {
                                 Text(
-                                    text = formatFileName(video.name),
+                                    text = video.name,
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontSize = 16.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp
                                     ),
                                     color = Color.White,
-                                    maxLines = 1,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Spacer(Modifier.height(3.dp))
@@ -2104,7 +2215,7 @@ fun VideoItem(
                                 .weight(1f)
                         ) {
                             Text(
-                                text = remember(video.path, video.dateAdded) { videoDateTitle(video) },
+                                text = remember(video.path, video.name, video.dateAdded) { cardTitle(video) },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
@@ -2310,7 +2421,7 @@ private fun SuggestedHero(video: VideoFile, onClick: () -> Unit, onLongClick: ()
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text = remember(video.path, video.name) { formatFileName(video.name) },
+                    text = remember(video.path, video.name) { cardTitle(video) },
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.1).sp),
                     color = Color.White,
                     maxLines = 1,
@@ -2501,6 +2612,7 @@ fun VideoListScreen(
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             if (layoutMode == LayoutMode.LIST) {
+                val isScrollInProgress = scrollState.isScrollInProgress
                 LazyColumn(
                     state = scrollState,
                     modifier = Modifier.glassSource().fillMaxSize().padding(bottom = padding.calculateBottomPadding()),
@@ -2523,7 +2635,8 @@ fun VideoListScreen(
                                     expandedVideoId = if (expandedVideoId == video.id) null else video.id
                                 },
                                 onClick = { onVideoClick(video) },
-                                onLongClick = { actionVideo = video }
+                                onLongClick = { actionVideo = video },
+                                isScrollInProgress = isScrollInProgress
                             )
                         }
 
@@ -2909,6 +3022,19 @@ private fun SectionLabel(text: String, count: Int? = null) {
     SectionHeader(title = text, count = count)
 }
 
+private val seriesRegex = Regex("""(?i)\bS\d{1,2}[ ._-]?E\d{1,3}\b|\b\d{1,2}x\d{2,3}\b|\bseason[ ._-]?\d+|\bepisode[ ._-]?\d+""")
+private val releaseRegex = Regex("""(?i)\b(19|20)\d{2}\b|\b(2160p|1080p|720p|480p|bluray|brrip|webrip|web-dl|hdtv|dvdrip|x264|x265|hevc)\b""")
+fun isMovieOrSeries(video: VideoFile): Boolean {
+    val name = video.name
+    val path = video.path.lowercase()
+    if (seriesRegex.containsMatchIn(name) || releaseRegex.containsMatchIn(name)) return true
+    if (path.contains("movie") || path.contains("series") || path.contains("show") || path.contains("cinema") || path.contains("tv")) return true
+    if (video.duration > 600_000L) return true
+    return false
+}
+fun cardTitle(video: VideoFile): String =
+    if (isMovieOrSeries(video)) formatFileName(video.name) else videoDateTitle(video)
+
 /** Card title: the date only. Falls back to the file's modified time when MediaStore has none. */
 fun videoDateTitle(video: VideoFile): String {
     if (video.dateAdded > 0L) return formatDate(video.dateAdded)
@@ -3032,6 +3158,7 @@ fun RecentsScreen(
                 Icon(painterResource(R.drawable.ic_history_custom), null, modifier = Modifier.size(56.dp), tint = LocalAppUiSettings.current.palette.textTertiary)
             }
         } else {
+            val isScrollInProgress = scrollState.isScrollInProgress
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = scrollState,
@@ -3054,7 +3181,8 @@ fun RecentsScreen(
                                 onToggle = {
                                     expandedVideoId = if (expandedVideoId == entry.video.id) null else entry.video.id
                                 },
-                                onClick = { onVideoClick(entry.video) }
+                                onClick = { onVideoClick(entry.video) },
+                                isScrollInProgress = isScrollInProgress
                             )
                         }
                     }

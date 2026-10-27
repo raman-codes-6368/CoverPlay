@@ -6,5 +6,5 @@
             android:drawable="@drawable/ic_fg_rose"
             android:inset="14%" />
     </foreground>
-    <monochrome android:drawable="@drawable/ic_mono" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>
