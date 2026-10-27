@@ -10,11 +10,12 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 
 <br/>
 
+![Version](https://img.shields.io/badge/Version-3.0.5-F0A04B?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Android-4660F0?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-100%25-A9BCFF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-00C2D1?style=for-the-badge&logo=jetpackcompose&logoColor=white)
 ![Ads](https://img.shields.io/badge/Ads-None-success?style=for-the-badge)
-![Open Source](https://img.shields.io/badge/Open%20Source-Yes-8A6BFF?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-8A6BFF?style=for-the-badge)
 
 <br/>
 
@@ -26,6 +27,21 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 <img src="assets/shot-player.jpg" width="80%" />
 
 </div>
+
+---
+
+## What's new in v3.0.5
+
+- **Cleaner**: a more refined, uncluttered interface
+- **Faster**: quicker launch, browsing and playback response
+- **Smoother**: polished animations and transitions throughout
+- **Bug fixes**: stability and playback issues resolved
+
+---
+
+## Download
+
+Grab the latest APK from the [Releases](../../releases/latest) page, open it, and install. If Android asks, allow installs from your browser or file manager.
 
 ---
 
@@ -128,6 +144,14 @@ CoverPlay has a sense of humour. Expect witty one-liners in dialogs and stats, a
 
 ---
 
+## Changelog
+
+### v3.0.5
+- Cleaner, faster, smoother experience
+- Bug fixes and stability improvements
+
+---
+
 ## Contributing
 
 Contributions are welcome.
@@ -148,6 +172,12 @@ CoverPlay is free and always will be. If it made your videos feel better, you ca
 - Star the repo
 - Share it with a friend
 - Support the developer via **UPI** from the *About Developer* screen in the app
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE). ExoPlayer/Media3 is used under the Apache 2.0 License.
 
 ---
 
