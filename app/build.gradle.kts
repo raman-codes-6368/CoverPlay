@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.myapplication"
+    namespace = "com.raman.CoverPlay"
     compileSdk = 37
 
     defaultConfig {
@@ -30,6 +30,15 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/io.netty.versions.properties"
+            )
+        }
     }
 }
 
@@ -61,6 +70,9 @@ dependencies {
     implementation(libs.androidx.media3.ui.compose)
     implementation(libs.androidx.media3.ui.compose.material3)
     implementation(libs.nextlib.media3ext)
+    implementation("androidx.media3:media3-session:1.10.1")
+    implementation("com.hierynomus:smbj:0.14.0")
+    implementation("commons-net:commons-net:3.11.1")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-video:2.7.0")

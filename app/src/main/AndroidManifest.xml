@@ -4,7 +4,11 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -32,94 +36,81 @@
             android:resizeableActivity="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Open video files -->
+            <!-- The one and only launcher entry (icon: ic_launcher) -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Open video files: local content/file, any video MIME -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
-
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
 
-                <data
-                    android:scheme="content"
-                    android:mimeType="video/*" />
+            <!-- Intents that carry only a MIME type (no scheme) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
 
-                <data
-                    android:scheme="file"
-                    android:mimeType="video/*" />
+            <!-- Network streams: http(s) / rtsp with a video or streaming MIME type -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="rtsp" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="application/x-mpegURL" />
+                <data android:mimeType="application/vnd.apple.mpegurl" />
+                <data android:mimeType="application/dash+xml" />
+                <data android:mimeType="application/sdp" />
+            </intent-filter>
+
+            <!-- Links ending in a video extension, where the sender gave no MIME type -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.mp4" />
+                <data android:pathPattern=".*\\.mkv" />
+                <data android:pathPattern=".*\\.webm" />
+                <data android:pathPattern=".*\\.avi" />
+                <data android:pathPattern=".*\\.mov" />
+                <data android:pathPattern=".*\\.m3u8" />
+                <data android:pathPattern=".*\\.ts" />
+            </intent-filter>
+
+            <!-- Share sheet: send a video (or a stream link) to the player -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
             </intent-filter>
 
         </activity>
 
-        <!-- Launcher Activity Aliases per AppTheme -->
-        <activity-alias
-            android:name=".IconIris"
-            android:enabled="true"
+        <service
+            android:name=".playback.PlaybackService"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher_iris"
-            android:roundIcon="@mipmap/ic_launcher_iris_round"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
+            android:foregroundServiceType="mediaPlayback">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".IconViolet"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_violet"
-            android:roundIcon="@mipmap/ic_launcher_violet_round"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".IconRose"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_rose"
-            android:roundIcon="@mipmap/ic_launcher_rose_round"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".IconEmber"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_ember"
-            android:roundIcon="@mipmap/ic_launcher_ember_round"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".IconAurora"
-            android:enabled="false"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher_aurora"
-            android:roundIcon="@mipmap/ic_launcher_aurora_round"
-            android:label="@string/app_name"
-            android:targetActivity=".MainActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
+        </service>
 
     </application>
 

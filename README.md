@@ -10,7 +10,7 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 
 <br/>
 
-![Version](https://img.shields.io/badge/Version-3.0.5-F0A04B?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-3.1.5-F0A04B?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/Platform-Android-4660F0?style=for-the-badge&logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-100%25-A9BCFF?style=for-the-badge&logo=kotlin&logoColor=white)
 ![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-00C2D1?style=for-the-badge&logo=jetpackcompose&logoColor=white)
@@ -20,22 +20,26 @@ Open source. Zero ads. Zero tracking. Just a beautiful, gesture-first player bui
 <br/>
 
 <img src="assets/shot-home.jpg" width="19%" />
-<img src="assets/shot-settings.jpg" width="19%" />
+<img src="assets/shot-stats.jpg" width="19%" />
 <img src="assets/shot-suggested.jpg" width="19%" />
 <img src="assets/shot-folders.jpg" width="19%" />
-
-<br/>
+<br/><br/>
+<img src="assets/shot-player.jpg" width="80%" />
 
 </div>
 
 ---
 
-## What's new in v3.0.5
+## What's new in v3.1.5
 
-- **Cleaner**: a more refined, uncluttered interface
-- **Faster**: quicker launch, browsing and playback response
-- **Smoother**: polished animations and transitions throughout
-- **Bug fixes**: stability and playback issues resolved
+CoverPlay gets a major refresh focused on speed, fluidity, customization and a more expressive interface.
+
+- **Much smoother**: refined animations, transitions and interactions across the app.
+- **Faster**: a more responsive experience while navigating and playing videos.
+- **Material 3 Expressive UI**: a refreshed design with more expressive shapes, surfaces, motion and visual hierarchy.
+- **More customization**: more ways to personalize the look and feel of CoverPlay.
+- **New streaming options**: expanded ways to stream and play online video.
+- **Polished experience**: interface refinements and fixes throughout.
 
 ---
 
@@ -54,9 +58,9 @@ Most video players make you choose: clean or capable, free or respectful. CoverP
 | **No ads. Ever.** | No banners, no popups, no "upgrade to remove ads". |
 | **Open source** | Every line is here. Read it, fork it, improve it. |
 | **Private by design** | Watch history and usage stats stay on your device. |
-| **Premium UI** | Glass surfaces, cinematic controls, fluid motion. |
+| **Expressive UI** | A refreshed Material 3 Expressive design with polished surfaces, cinematic controls and fluid motion. |
 | **Gesture-first** | Swipe, pinch, long-press. The player gets out of your way. |
-| **Made to be themed** | Five hand-tuned themes, each with its own matching app icon. |
+| **Made to be themed** | Personalize the experience with expanded customization and theme options. |
 
 ---
 
@@ -130,7 +134,7 @@ CoverPlay has a sense of humour. Expect witty one-liners in dialogs and stats, a
 - **Material 3** with a custom glass design system
 - **Media3 / ExoPlayer** for playback
 - **Coil** for thumbnails and video frames
-- **Plus Jakarta Sans** typography
+- **Google Sans Flex (Rounded)** typography — one family, 11sp floor, tabular figures for timers
 - **MediaStore** and scoped storage for file operations
 
 ---
@@ -145,6 +149,22 @@ CoverPlay has a sense of humour. Expect witty one-liners in dialogs and stats, a
 ---
 
 ## Changelog
+
+### v3.1.5
+- Major Material 3 Expressive UI refresh
+- Much smoother animations and interactions
+- Faster, more responsive navigation and playback experience
+- Expanded customization options
+- New streaming options
+- UI refinements and bug fixes
+
+### v3.1.5
+- Major Material 3 Expressive UI refresh
+- Much smoother animations and interactions
+- Faster, more responsive navigation and playback experience
+- Expanded customization options
+- New streaming options
+- UI refinements and bug fixes
 
 ### v3.0.5
 - Cleaner, faster, smoother experience
